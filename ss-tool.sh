@@ -87,7 +87,8 @@ function processConfig(){
     # overwrite the canonical repo with revised sql
     # git push -u
     # stop amd rmi container
-    # cd .. and rm -rf schema-tool dir if param = --remove-when-done
+    # cd .. and rm -rf schema-tool dir if param = --cleanup
+    # using folders="ls -d */" and for dir in "${folders[@]}";do rm -rf $dir; done; 
     
      
   fi;   

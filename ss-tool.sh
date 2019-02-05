@@ -109,7 +109,7 @@ while [[ "$#" > 0 ]]; do
         --version) 
             displayVersion; exit 0;;
         -f|--file) 
-            _confileFile="$2";
+            _configFile="$2";
             shift;;
         -s|--silent) 
             _verbose="0"
@@ -123,14 +123,18 @@ while [[ "$#" > 0 ]]; do
     shift; 
 done
 
-if [ "$_verbose" = "1" ]; then 
-    _title="ss-tool ver $_version";
-    _title="$_title\n======================";
-    echo -e $_title
-fi
-
-
-if [ -n "$_configFile" ]; then processConfig $_configFile $_verbose;exit 0; fi;
+if [ -n "$_configFile" ]; then
+    if [ "$_verbose" = "1" ]; then 
+        _title="ss-tool ver $_version";
+        _title="$_title\n======================";
+        echo -e $_title
+    fi
+    
+    processConfig $_configFile $_verbose; 
+    
+    exit 0; 
+fi;
 
 echo "Try ss-tool --help for help";
+echo "";
 #FINIS

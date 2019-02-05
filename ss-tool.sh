@@ -9,7 +9,7 @@
 _version="0.1"
 
 function displayHelp(){
- echo "Usage ss [OPTION]... [FILE]";
+ echo "Usage ss-tool [OPTION]... [FILE]";
  echo "   Clones the repositories of multiple microservices as per the ss.conf file";
  echo "   and drops & recreates these discrete schemas into a single canonical database";
  echo "   which it then round-trips back into the canonical repository";
@@ -24,18 +24,16 @@ function displayHelp(){
  echo "Usage ss [OPTION]... [FILE]";
  echo "";
  echo "  EXAMPLE(s):";
- echo "      pingtest -f [ipfile]";
+ echo "      ss-tool -f [ss-tool.conf]";
  echo "";
- echo "  ss.conf:";
- echo "      [canonical-database] section";
- echo "      [<microservice>] section(s) giving details of repo with flyway sql to build microservice schemas";
- echo "      pingtest --server [server-ip/url:port]";
- echo "      pingtest --server [server-ip/url:port]";
+ echo "      ss-tool.conf:";
+ echo "          [canonical-database] section";
+ echo "          [<microservice>] section(s) giving details of repo with flyway sql to build micro-service schemas";
  echo "";
 }
 
 function displayVersion(){
- echo "ss (bank-builder utils) version $_version";
+ echo "ss-tool (bank-builder utils) version $_version";
  echo "Copyright (C) 2019, Andrew Turpin";
  echo "License MIT: https://opensource.org/licenses/MIT";
  echo "";
@@ -94,7 +92,40 @@ function processConfig(){
 
 }
 
-# Main
+# __Main__
+_verbose="0"
+_markdown="0"
+while [[ "$#" > 0 ]]; do
+    case $1 in
+        --help) 
+            displayHelp; exit 0;;
+        --version) 
+            displayVersion; exit 0;;
+        -f|--file) 
+            _confileFile="$2";
+            shift;;
+        -v|--verbose) 
+            _verbose="1"
+            ;;
+        -c|--cleanup) 
+            _cleanup="1";
+            shift;
+            ;;
+        *) echo "Unknown parameter passed: $1"; exit 1;;
+    esac; 
+    shift; 
+done
 
-processConfig "schema-tool.conf";
-#end of script
+if [ "$_verbose" = "1" ]; then 
+    _title="ss-tool ver $_version";
+    if [ "$_markdown" = "1" ]; then _title="# $_title";
+    else _title="$_title\n======================";
+    fi;
+    echo -e $_title
+fi
+
+
+if [ -n "$_configFile" ]; then processConfig $_configFile $_verbose $_markdown;exit 0; fi;
+
+echo "Try ss-tool --help for help";
+#FINIS

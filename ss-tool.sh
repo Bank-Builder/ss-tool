@@ -1,8 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2018, Andrew Turpin
 # License MIT: https://opensource.org/licenses/MIT
-# Schema Sync - known as ss, is a tool to sync the postgres schemas from 
-#               multiple microservices into a single cannonical view
 #-----------------------------------------------------------------------
 
 
@@ -42,7 +40,7 @@ function displayVersion(){
 }
 
 function evaluate(){
- #if _verbose="0" then redirect stdout to null else show on screen
+ #TODO if _verbose="0" then redirect stdout to null else show on screen
  eval "$1"
 }
 

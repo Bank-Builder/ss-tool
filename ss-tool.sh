@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018, Andrew Turpin
+# Copyright (c) 2019, Andrew Turpin
 # License MIT: https://opensource.org/licenses/MIT
 #-----------------------------------------------------------------------
 
@@ -47,6 +47,8 @@ function evaluate(){
 function processConfig(){
  Config="$1"
  Verbose="$2"
+ Cleanup="$3"
+ 
  IFS=$'\n'
 
  for line in $(cat $Config)
@@ -79,27 +81,25 @@ function processConfig(){
     if [ "$confLabel" = "source" ] && [ "$clone" != "" ]; then evaluate $confValue; fi;
 
     ## TODO ##
-    # spin up the postgres docker container
     # connect and create the database as per conf file
     # drop the non-canonical schema's from canonical db
-    # execute the schema .sql flyways against the canonical db
-    # sqldump the canonical
-    # overwrite the canonical repo with revised sql
-    # git push -u
-    # stop amd rmi container
-    # cd .. and rm -rf schema-tool dir if param = --cleanup
-    # using folders="ls -d */" and for dir in "${folders[@]}";do rm -rf $dir; done; 
-    
-     
+    # execute the schema's .sql flyways against the canonical db
+   
   fi;   
-           
+  
  done
-
+ # if param = --cleanup then remove cloned git sub-directories
+ if [ "$Cleanup" = "1" ]; then
+     #folders=eval "ls -d */" ;
+     #for dir in "${folders[@]}";do echo "rmc -rf "$dir; done;
+     echo "iterate through folders and remove them ..."
+ fi;
 }
 
 # __Main__
 _verbose="1"
 _configFile="ss-tool.conf"
+_cleanup="0"
 
 while [[ "$#" > 0 ]]; do
     case $1 in
@@ -128,8 +128,16 @@ if [ -n "$_configFile" ]; then
         _title="$_title\n======================";
         echo -e $_title
     fi
-    
-    processConfig $_configFile $_verbose; 
+    # spin up the postgres docker container
+    echo "spinning up postgress docker container ..."
+    processConfig $_configFile $_verbose $_cleanup;
+    # sqldump the canonical
+    echo "dumping the canonical to .sql"
+    # overwrite the canonical repo with revised sql
+    # git push -u
+    echo " canonical/ git push -u" 
+    # stop amd rmi container
+    echo "stop and docker rmi postgres.container" 
     
     exit 0; 
 fi;

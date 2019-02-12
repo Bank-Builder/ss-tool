@@ -82,6 +82,8 @@ function processConfig(){
 
     ## TODO ##
     # connect and create the database as per conf file
+    # PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE "bigbaobab" ENCODING = 'UTF8' TABLESPACE = pg_default OWNER = postgres;"
+    
     # drop the non-canonical schema's from canonical db
     # execute the schema's .sql flyways against the canonical db
    
@@ -92,7 +94,13 @@ function processConfig(){
  if [ "$Cleanup" = "1" ]; then
      #folders=eval "ls -d */" ;
      #for dir in "${folders[@]}";do echo "rmc -rf "$dir; done;
-     echo "iterate through folders and remove them ..."
+     echo "... iterate through sub-directories and remove them ..."
+     IFS=$'\n';declare -a folders=("$(ls -d */)");
+     for dir in ${folders[@]};
+     do 
+         $(rm -rf $dir);
+         echo "deleted $dir";
+     done
  fi;
 }
 
@@ -130,12 +138,25 @@ if [ -n "$_configFile" ]; then
     fi
     # spin up the postgres docker container
     echo "spinning up postgress docker container ..."
-    processConfig $_configFile $_verbose $_cleanup;
-    # sqldump the canonical
-    echo "dumping the canonical to .sql"
-    # overwrite the canonical repo with revised sql
-    # git push -u
-    echo " canonical/ git push -u" 
+    #evaluate "docker pull postgres:latest"
+    evaluate "docker stop db"
+    evaluate "docker rm db"
+    evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres postgres"
+    export EDITOR=/usr/bin/nano
+    echo "checking if posgress is running on port 8432"
+    namespace=""\""select nspname from pg_catalog.pg_namespace;"\"""
+       #$(export PGPASSWORD=postgres)
+    export PGPASSWORD=postgres
+    psql="psql"
+    options=( "-U postgres" "-h localhost" "-p 8432" )
+    command=( "$psql" "${options[@]}" -t "-c $namespace" )
+
+     # execute it:
+    "${command[@]}"
+    #psql -U postgres -h localhost -p 8432 -t -c "select nspname from pg_catalog.pg_namespace;"
+    #the canonical repo with revised sql
+    # git   push -u
+    echo "canonical/ git push -u" 
     # stop amd rmi container
     echo "stop and docker rmi postgres.container" 
     

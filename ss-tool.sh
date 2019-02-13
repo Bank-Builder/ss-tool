@@ -1,4 +1,5 @@
 #!/bin/bash
+#-----------------------------------------------------------------------
 # Copyright (c) 2019, Andrew Turpin
 # License MIT: https://opensource.org/licenses/MIT
 #-----------------------------------------------------------------------
@@ -15,7 +16,7 @@ function displayHelp(){
  echo "  OPTIONS:";
  echo "    -f, --file      supply optional file name of alternative ss-tool.conf file";
  echo "    -s, --silent    does not display vebose details";
- echo "    -c, --cleanup   removes all git cloned sub-directories when done";
+ echo "    -c, --cleanup   removes all git cloned sub-directories & rm's docker's when done";
  echo "        --help      display this help and exit";
  echo "        --version   display version and exit";
  echo "";
@@ -39,15 +40,31 @@ function displayVersion(){
  echo "";
 }
 
-function evaluate(){
- #TODO if _verbose="0" then redirect stdout to null else show on screen
- eval "$1"
+evaluate(){
+ # executes by eval but without outputting to screen and returns exit code 
+ eval "$1" > /dev/null 2>&1
+ return $?
+}
+
+function cleanUp(){
+ echo "Cleanup:"
+ echo "----------"
+ echo "Iterating through and removing cloned repo sub-directories"
+ IFS=$'\n';declare -a folders=("$(ls -d */)");
+ for dir in ${folders[@]};
+ do 
+     #$(rm -rf $dir);
+     echo "... deleted $dir";
+ done
+ echo "... removing docker db"
+ evaluate "docker stop dbv"; if [ "$?" != "0" ]; then echo "... error stopping db"; fi;
+ evaluate "docker rm db"; if [ "$?" != "0" ]; then echo "... error removing db"; fi;
+ echo "----------"
 }
 
 function processConfig(){
  Config="$1"
  Verbose="$2"
- Cleanup="$3"
  
  IFS=$'\n'
 
@@ -82,7 +99,8 @@ function processConfig(){
 
     ## TODO ##
     # connect and create the database as per conf file
-    # PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE "bigbaobab" ENCODING = 'UTF8' TABLESPACE = pg_default OWNER = postgres;"
+    
+    
     
     # drop the non-canonical schema's from canonical db
     # execute the schema's .sql flyways against the canonical db
@@ -90,19 +108,10 @@ function processConfig(){
   fi;   
   
  done
- # if param = --cleanup then remove cloned git sub-directories
- if [ "$Cleanup" = "1" ]; then
-     #folders=eval "ls -d */" ;
-     #for dir in "${folders[@]}";do echo "rmc -rf "$dir; done;
-     echo "... iterate through sub-directories and remove them ..."
-     IFS=$'\n';declare -a folders=("$(ls -d */)");
-     for dir in ${folders[@]};
-     do 
-         $(rm -rf $dir);
-         echo "deleted $dir";
-     done
- fi;
+ 
 }
+
+
 
 # __Main__
 _verbose="1"
@@ -138,27 +147,24 @@ if [ -n "$_configFile" ]; then
     fi
     # spin up the postgres docker container
     echo "spinning up postgress docker container ..."
-    #evaluate "docker pull postgres:latest"
+    evaluate "docker pull postgres:latest"
     evaluate "docker stop db"
     evaluate "docker rm db"
     evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres postgres"
-    export EDITOR=/usr/bin/nano
-    echo "checking if posgress is running on port 8432"
-    namespace=""\""select nspname from pg_catalog.pg_namespace;"\"""
-       #$(export PGPASSWORD=postgres)
-    export PGPASSWORD=postgres
-    psql="psql"
-    options=( "-U postgres" "-h localhost" "-p 8432" )
-    command=( "$psql" "${options[@]}" -t "-c $namespace" )
-
-     # execute it:
-    "${command[@]}"
-    #psql -U postgres -h localhost -p 8432 -t -c "select nspname from pg_catalog.pg_namespace;"
+    sleep 5 # wait for psql to get going before trying to connect
+    #echo "... checking if posgress is running on port 8432 ..."
+    #sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "select nspname from pg_catalog.pg_namespace;"'
+    #eval $sql
+    sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE bigbaobab ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'
+    eval $sql
+    #processConfig $_configFile $_verbose; 
+    
     #the canonical repo with revised sql
     # git   push -u
     echo "canonical/ git push -u" 
-    # stop amd rmi container
-    echo "stop and docker rmi postgres.container" 
+    
+    # if param = --cleanup then remove cloned git sub-directories
+    if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     
     exit 0; 
 fi;

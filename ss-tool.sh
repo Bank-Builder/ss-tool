@@ -4,8 +4,12 @@
 # License MIT: https://opensource.org/licenses/MIT
 #-----------------------------------------------------------------------
 
-
-_version="0.2"
+# Globals
+_version="0.3"
+_silent="0"
+_configFile="ss-tool.conf"
+_cleanup="0"
+_here=$(pwd)
 
 function displayHelp(){
  echo "Usage: ss-tool [OPTION]...";
@@ -44,17 +48,28 @@ function trim(){
    echo $1 | xargs
 }
 
+function msg(){
+ if [ "$_silent" != "1" ]; then echo "$1"; fi
+}
+
 function evaluate(){
  # executes by eval but without outputting to screen and returns exit code
- eval "$1" > /dev/null 2>&1
+ if [ "$_silent" != "1" ]; then
+    eval "$1"
+ else # redirect stdout to null & error to stdout i.e. go silent
+    eval "$1" > /dev/null 2>&1
+ fi
  return $?
 }
 
 function flyway_config(){
- #evaluate "mkdir flyway"
-  # add username, pwd, postgres-connection
- # flyway.driver=org.postgresql.Driver
-#flyway.url=jdbc:postgresql://localhost:5432/flywaydemo
+ evaluate "cd $_here"
+ evaluate "mkdir flyway"
+ evaluate "cd flyway"
+ evaluate "# flyway.conf > flyway.conf"
+ evaluate "flyway.driver=org.postgresql.Driver >> flyway.conf"
+ evaluate "flyway.url=jdbc:postgresql://localhost:8432/$database >> flyway.conf"
+ ecaluate "cd .."
 #flyway.user=postgres
 #flyway.password=postgres
 ##flyway.locations=filesystem:src/main/resources/flyway/migrations
@@ -62,34 +77,29 @@ function flyway_config(){
 #flyway.sqlMigrationSeparator=__
 #flyway.sqlMigrationSuffix=.sql
 #flyway.validateOnMigrate=true
-   echo "Flyway configuration ..."
+ msg "Flyway configuration ..."
 }
 
 
 function cleanUp(){
- echo "cleanup:"
- echo "----------"
- echo "iterating through and removing cloned repo sub-directories"
- #IFS=$'\n';declare -a folders=("$(ls -d */)");
- #for dir in ${folders[@]};
- #do 
-     # exit if dangerous folder names in config
-     dir="git"
-     if [[ "~/." == *"$dir"* ]]; then 
-         printf "Dangerous config! \n[$dir] is not allowed\n"; exit; 
-     fi;
-     $(rm -rf $dir);
-     echo "... deleted $dir";
- #done
+ msg "cleanup:"
+ msg "----------"
+ msg "iterating through and removing cloned repo sub-directories"
  
- echo "... removing docker db"
- evaluate "docker stop db"; if [ "$?" != "0" ]; then echo "... error stopping db"; fi;
- evaluate "docker rm db"; if [ "$?" != "0" ]; then echo "... error removing db"; fi;
+ evaluate "cd $_here"  
+ dir="git"
+ if [[ "~/." == *"$dir"* ]]; then printf "Dangerous config! \n[$dir] is not allowed\n"; exit; fi;
+ evaluate "rm -rf $dir";
+ msg "... deleted $dir";
  
- echo "... removing docker fw"
- evaluate "docker stop fw"; if [ "$?" != "0" ]; then echo "... error stopping fw"; fi;
- evaluate "docker rm fw"; if [ "$?" != "0" ]; then echo "... error removing fw"; fi;
- echo "----------"
+ msg "... removing docker db"
+ evaluate "docker stop db"; if [ "$?" != "0" ]; then msg "... error stopping db"; fi;
+ evaluate "docker rm db"; if [ "$?" != "0" ]; then msg "... error removing db"; fi;
+ 
+ msg "... removing docker fw"
+ evaluate "docker stop fw"; if [ "$?" != "0" ]; then msg "... error stopping fw"; fi;
+ evaluate "docker rm fw"; if [ "$?" != "0" ]; then msg "... error removing fw"; fi;
+ msg "----------"
 }
 
 function clone(){
@@ -98,27 +108,27 @@ function clone(){
  folder=$( echo "$folder" |cut -d'.' -f1 );
  
  if [ ! -d "git/" ]; then
-     $(mkdir git)
+     evaluate "mkdir git"
  fi;
  
  if [ -d "git/$folder" ]; then
-   echo -e "pulling $folder";
+   msg "pulling $folder";
    evaluate "cd git/$folder"; evaluate "git pull"; evaluate "cd ../..";
  else
-   echo -e "cloning $source"
-   eval "cd git"
-   eval $source;
-   eval "cd .."
+   msg "cloning $source"
+   evaluate "cd git"
+   evaluate $source;
+   evaluate "cd .."
  fi;
 }
 
 function processConfig(){
- Config="$1"
- Verbose="$2"
+ conf="$1"
+ 
  
  IFS=$'\n'
 
- for line in $(cat $Config)
+ for line in $(cat $conf)
  do
    line=$(trim $line)
    confLabel=$( echo "$line" |cut -d'=' -f1 );
@@ -126,25 +136,26 @@ function processConfig(){
    if [[ ${confLabel:0:1} != "#" ]] ; then #not a comment nor a blank line
 
        tmp=${confLabel#*[}   # remove prefix ending in "["
-       section=${tmp%]*}   # remove suffix starting with "]"
+       section=${tmp%]*}     # remove suffix starting with "]"
 
        if [ "$confLabel" == "[$section]" ]; then # [section] header
            
            header=$( echo "$section" |cut -d':' -f1 );
            schema=$( echo "$section" |cut -d':' -f2 );
            if [ "$header" == "canonical" ]; then
-             echo "creating database $schema in docker db"
+             msg "creating database $schema in docker db"
              sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE $schema ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
            fi;
-           echo "..."
+           msg "..."
       else # label=value
-           #do this for both datbase & microservice sections
-           if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then echo $(clone $confValue); fi;
+           # clone repo's for canonical & all microservice sections
+           if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then msg $(clone $confValue); fi;
            
            
            
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then 
-             echo "executing flyway scripts at $confValue for $schema"
+             msg "executing flyway scripts at $confValue for $schema"
+             # execute flyway
            fi
        fi;
     fi;   
@@ -156,9 +167,6 @@ function processConfig(){
 
 
 # __Main__
-_verbose="1"
-_configFile="ss-tool.conf"
-_cleanup="0"
 
 while [[ "$#" > 0 ]]; do
     case $1 in
@@ -170,7 +178,7 @@ while [[ "$#" > 0 ]]; do
             _configFile="$2";
             shift;;
         -s|--silent) 
-            _verbose="0"
+            _silent="1"
             ;;
         -c|--cleanup) 
             _cleanup="1";
@@ -182,35 +190,36 @@ while [[ "$#" > 0 ]]; do
 done
 
 if [ -n "$_configFile" ]; then
-    if [ "$_verbose" = "1" ]; then 
+    if [ "$_silent" != "1" ]; then 
         _title="ss-tool ver $_version";
         _title="$_title\n======================";
-        echo -e $_title
+        msg $_title
     fi
     
     # consider using a docker compose script to achieve this
-    echo "spinning up Flyway docker container ..."
+    msg "spinning up Flyway docker container ..."
     evaluate "docker pull boxfuse/flyway"
     evaluate "docker stop fw"
     evaluate "docker rm fw"
     evaluate "docker stop fw"
-    evaluate "docker run --rm boxfuse/flyway --name fw"
+    evaluate "docker run --name fw --rm boxfuse/flyway"
     
-    echo "spinning up postgress docker container ..."
+    msg "spinning up postgress docker container ..."
     evaluate "docker pull postgres:latest"
+    evaluate "docker stop db"
     evaluate "docker rm db"
     evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres postgres"
     
     sleep 5 # wait for psql process inside the docker db to get going before trying to connect
   
-    processConfig $_configFile $_verbose 
+    processConfig $_configFile
     
     # update the canonical repo with revised sql
     # git   push -u
-    # echo "canonical/ git push -u" 
+    # msg "canonical/ git push -u" 
     
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
-    echo "Done!"
+    msg "Done!"
     exit 0; 
 fi;
 

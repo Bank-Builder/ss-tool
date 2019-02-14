@@ -64,20 +64,21 @@ function evaluate(){
 
 function flyway_config(){
  evaluate "cd $_here"
+ if [ -d "$_here" ]; then evaluate "rm -rf flyway"; fi;
  evaluate "mkdir flyway"
  evaluate "cd flyway"
- evaluate "# flyway.conf > flyway.conf"
- evaluate "flyway.driver=org.postgresql.Driver >> flyway.conf"
- evaluate "flyway.url=jdbc:postgresql://localhost:8432/$database >> flyway.conf"
- ecaluate "cd .."
-#flyway.user=postgres
-#flyway.password=postgres
-##flyway.locations=filesystem:src/main/resources/flyway/migrations
-#flyway.sqlMigrationPrefix=V
-#flyway.sqlMigrationSeparator=__
-#flyway.sqlMigrationSuffix=.sql
-#flyway.validateOnMigrate=true
+ evaluate "echo '## flyway configuration ##' > flyway.conf"
+ evaluate 'echo "flyway.driver=org.postgresql.Driver" >> flyway.conf'
+ evaluate 'echo "flyway.url=jdbc:postgresql://localhost:8432/$database" >> flyway.conf'
+ evaluate 'echo "flyway.user=postgres" >> flyway.conf'
+ evaluate 'echo "flyway.password=postgres" >> flyway.conf'
+ evaluate 'echo "flyway.locations=filesystem:src/main/resources/flyway/migrations" >> flyway.conf'
+ evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
+ evaluate 'echo "flyway.sqlMigrationSeparator=__" >> flyway.conf'
+ evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'
+ evaluate 'echo "flyway.validateOnMigrate=true" >> flyway.conf'
  msg "Flyway configuration ..."
+ evaluate "cd .."
 }
 
 
@@ -190,13 +191,15 @@ while [[ "$#" > 0 ]]; do
 done
 
 if [ -n "$_configFile" ]; then
-    if [ "$_silent" != "1" ]; then 
-        _title="ss-tool ver $_version";
-        _title="$_title\n======================";
-        msg $_title
+    if [ "$_silent" == "0" ]; then 
+        msg "ss-tool ver $_version"
+        msg "======================";
     fi
     
     # consider using a docker compose script to achieve this
+    
+    flyway_config
+    
     msg "spinning up Flyway docker container ..."
     evaluate "docker pull boxfuse/flyway"
     evaluate "docker stop fw"

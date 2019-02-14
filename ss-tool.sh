@@ -50,7 +50,7 @@ function evaluate(){
  return $?
 }
 
-function() flyway_config{
+function flyway_config(){
  #evaluate "mkdir flyway"
   # add username, pwd, postgres-connection
  # flyway.driver=org.postgresql.Driver
@@ -62,6 +62,7 @@ function() flyway_config{
 #flyway.sqlMigrationSeparator=__
 #flyway.sqlMigrationSuffix=.sql
 #flyway.validateOnMigrate=true
+   echo "Flyway configuration ..."
 }
 
 
@@ -69,16 +70,17 @@ function cleanUp(){
  echo "cleanup:"
  echo "----------"
  echo "iterating through and removing cloned repo sub-directories"
- IFS=$'\n';declare -a folders=("$(ls -d */)");
- for dir in ${folders[@]};
- do 
+ #IFS=$'\n';declare -a folders=("$(ls -d */)");
+ #for dir in ${folders[@]};
+ #do 
      # exit if dangerous folder names in config
+     dir="git"
      if [[ "~/." == *"$dir"* ]]; then 
-         printf "Dangerous config! \n[$dir] is not allowed in .conf\n"; exit; 
+         printf "Dangerous config! \n[$dir] is not allowed\n"; exit; 
      fi;
      $(rm -rf $dir);
      echo "... deleted $dir";
- done
+ #done
  
  echo "... removing docker db"
  evaluate "docker stop db"; if [ "$?" != "0" ]; then echo "... error stopping db"; fi;
@@ -94,13 +96,19 @@ function clone(){
  source=$1  #git clone string
  folder=$( echo "$source" |cut -d'/' -f2 );
  folder=$( echo "$folder" |cut -d'.' -f1 );
-
- if [ -d "$folder" ]; then
+ 
+ if [ ! -d "git/" ]; then
+     $(mkdir git)
+ fi;
+ 
+ if [ -d "git/$folder" ]; then
    echo -e "pulling $folder";
-   evaluate "cd $folder"; evaluate "git pull"; evaluate "cd ..";
+   evaluate "cd git/$folder"; evaluate "git pull"; evaluate "cd ../..";
  else
    echo -e "cloning $source"
+   eval "cd git"
    eval $source;
+   eval "cd .."
  fi;
 }
 

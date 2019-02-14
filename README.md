@@ -12,20 +12,20 @@ Usage: ss-tool [OPTION]...
   OPTIONS:
     -f, --file      supply optional file name of alternative ss-tool.conf file
     -s, --silent    does not display vebose details
-    -c, --cleanup   removes all git cloned sub-directories when done
+    -c, --cleanup   removes all git cloned sub-directories & docker db when done
         --help      display this help and exit
         --version   display version and exit
 
 
   EXAMPLE(s):
       ss-tool --cleanup
-           will remove all the sub-folders of cloned repositories after it has completed executing.
+           will remove all git cloned repositories & docker db when done
 
       ss-tool.conf:
           [canonical-database] section
           [<microservice>] section(s) giving details of repo with amongst other settings, 
-                           the source path to the FlyWay SQL scripts to
-                           add micro-service schemas to canonical-database
+                           the source path to the FlyWay SQL scripts for
+                           the micro-service schemas
 </pre>
 
 The ss-tool does the following:
@@ -37,7 +37,8 @@ The ss-tool does the following:
 
 Dependencies:
 * docker
-* postgres
+<pre>sudo apt install docker.io</pre>
+* postgres client
 
 (C)Copyright 2019, bank-builder
 License: MIT

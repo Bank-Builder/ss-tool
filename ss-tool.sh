@@ -28,7 +28,7 @@ function displayHelp(){
  echo "      ss-tool.conf:";
  echo "          [canonical-database] section";
  echo "          [<microservice>] section(s) giving details of repo with amongst other settings, ";
- echo "                           the source path to the FlyWay SQL scripts for";
+ echo "                           the source path to the Flyway SQL scripts for";
  echo "                           the micro-service schemas";
  echo "";
 }
@@ -44,11 +44,26 @@ function trim(){
    echo $1 | xargs
 }
 
-evaluate(){
+function evaluate(){
  # executes by eval but without outputting to screen and returns exit code
  eval "$1" > /dev/null 2>&1
  return $?
 }
+
+function() flyway_config{
+ #evaluate "mkdir flyway"
+  # add username, pwd, postgres-connection
+ # flyway.driver=org.postgresql.Driver
+#flyway.url=jdbc:postgresql://localhost:5432/flywaydemo
+#flyway.user=postgres
+#flyway.password=postgres
+##flyway.locations=filesystem:src/main/resources/flyway/migrations
+#flyway.sqlMigrationPrefix=V
+#flyway.sqlMigrationSeparator=__
+#flyway.sqlMigrationSuffix=.sql
+#flyway.validateOnMigrate=true
+}
+
 
 function cleanUp(){
  echo "cleanup:"
@@ -61,12 +76,17 @@ function cleanUp(){
      if [[ "~/." == *"$dir"* ]]; then 
          printf "Dangerous config! \n[$dir] is not allowed in .conf\n"; exit; 
      fi;
-     #$(rm -rf $dir);
+     $(rm -rf $dir);
      echo "... deleted $dir";
  done
+ 
  echo "... removing docker db"
  evaluate "docker stop db"; if [ "$?" != "0" ]; then echo "... error stopping db"; fi;
  evaluate "docker rm db"; if [ "$?" != "0" ]; then echo "... error removing db"; fi;
+ 
+ echo "... removing docker fw"
+ evaluate "docker stop fw"; if [ "$?" != "0" ]; then echo "... error stopping fw"; fi;
+ evaluate "docker rm fw"; if [ "$?" != "0" ]; then echo "... error removing fw"; fi;
  echo "----------"
 }
 
@@ -160,11 +180,19 @@ if [ -n "$_configFile" ]; then
         echo -e $_title
     fi
     
+    # consider using a docker compose script to achieve this
+    echo "spinning up Flyway docker container ..."
+    evaluate "docker pull boxfuse/flyway"
+    evaluate "docker stop fw"
+    evaluate "docker rm fw"
+    evaluate "docker stop fw"
+    evaluate "docker run --rm boxfuse/flyway --name fw"
+    
     echo "spinning up postgress docker container ..."
     evaluate "docker pull postgres:latest"
-    evaluate "docker stop db"
     evaluate "docker rm db"
     evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres postgres"
+    
     sleep 5 # wait for psql process inside the docker db to get going before trying to connect
   
     processConfig $_configFile $_verbose 

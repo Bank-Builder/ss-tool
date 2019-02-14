@@ -204,8 +204,7 @@ if [ -n "$_configFile" ]; then
     evaluate "docker pull boxfuse/flyway"
     evaluate "docker stop fw"
     evaluate "docker rm fw"
-    evaluate "docker stop fw"
-    evaluate "docker run --name fw --rm boxfuse/flyway"
+    evaluate "docker run --name fw boxfuse/flyway -v"
     
     msg "spinning up postgress docker container ..."
     evaluate "docker pull postgres:latest"

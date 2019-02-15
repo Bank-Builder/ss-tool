@@ -10,6 +10,10 @@ _silent="0"
 _configFile="ss-tool.conf"
 _cleanup="0"
 _here=$(pwd)
+_db="db"
+_db_docker="postgres"
+_flyway_docker="boxfuse/flyway"
+_database="canonical"
 
 function displayHelp(){
  echo "Usage: ss-tool [OPTION]...";
@@ -69,7 +73,7 @@ function flyway_config(){
  evaluate "cd flyway"
  evaluate "echo '## flyway configuration ##' > flyway.conf"
  evaluate 'echo "flyway.driver=org.postgresql.Driver" >> flyway.conf'
- evaluate 'echo "flyway.url=jdbc:postgresql://localhost:8432/$database" >> flyway.conf'
+ evaluate 'echo "flyway.url=jdbc:postgresql://localhost:8432/'${_database}'" >> flyway.conf'
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
  evaluate 'echo "flyway.locations=filesystem:src/main/resources/flyway/migrations" >> flyway.conf'
@@ -81,6 +85,14 @@ function flyway_config(){
  evaluate "cd .."
 }
 
+function clearup_docker(){
+ _name=$1
+ msg "clear up $_name container ..."
+ evaluate "docker stop $_name"
+ sleep 1
+ evaluate "docker rm $_name"
+ sleep 1
+}
 
 function cleanUp(){
  msg "cleanup:"
@@ -144,8 +156,10 @@ function processConfig(){
            header=$( echo "$section" |cut -d':' -f1 );
            schema=$( echo "$section" |cut -d':' -f2 );
            if [ "$header" == "canonical" ]; then
-             msg "creating database $schema in docker db"
-             sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE $schema ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
+             _database=$schema
+             msg "creating database $_database in docker db"
+             
+             sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE $_database ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
            fi;
            msg "..."
       else # label=value
@@ -156,7 +170,9 @@ function processConfig(){
            
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then 
              msg "executing flyway scripts at $confValue for $schema"
-             # execute flyway
+             clearup_docker "fw"
+             evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+             clearup_docker "fw"
            fi
        fi;
     fi;   
@@ -199,18 +215,10 @@ if [ -n "$_configFile" ]; then
     # consider using a docker compose script to achieve this
     
     flyway_config
-    
-    msg "spinning up Flyway docker container ..."
-    evaluate "docker pull boxfuse/flyway"
-    evaluate "docker stop fw"
-    evaluate "docker rm fw"
-    evaluate "docker run --name fw boxfuse/flyway -v"
-    
-    msg "spinning up postgress docker container ..."
-    evaluate "docker pull postgres:latest"
-    evaluate "docker stop db"
-    evaluate "docker rm db"
-    evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres postgres"
+     
+    clearup_docker "db"
+    evaluate "docker pull $_db_docker"
+    evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres $_db_docker"
     
     sleep 5 # wait for psql process inside the docker db to get going before trying to connect
   

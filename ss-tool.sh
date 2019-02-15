@@ -76,7 +76,6 @@ function flyway_config(){
  evaluate 'echo "flyway.url=jdbc:postgresql://localhost:8432/'${_database}'" >> flyway.conf'
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
- evaluate 'echo "flyway.locations=filesystem:src/main/resources/flyway/migrations" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSeparator=__" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'

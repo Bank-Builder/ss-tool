@@ -11,6 +11,7 @@ _configFile="ss-tool.conf"
 _cleanup="0"
 _here=$(pwd)
 _db="db"
+_db_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' db)
 _db_docker="postgres"
 _flyway_docker="boxfuse/flyway"
 _database="canonical"
@@ -58,7 +59,7 @@ function msg(){
 
 function evaluate(){
  # executes by eval but without outputting to screen and returns exit code
- if [ "$_silent" != "1" ]; then
+ if [ "$_silent" != "1" ] || [ "$2" == "SILENT" ]; then
     eval "$1"
  else # redirect stdout to null & error to stdout i.e. go silent
     eval "$1" > /dev/null 2>&1
@@ -73,7 +74,7 @@ function flyway_config(){
  evaluate "cd flyway"
  evaluate "echo '## flyway configuration ##' > flyway.conf"
  evaluate 'echo "flyway.driver=org.postgresql.Driver" >> flyway.conf'
- evaluate 'echo "flyway.url=jdbc:postgresql://localhost:8432/'${_database}'" >> flyway.conf'
+ evaluate 'echo "flyway.url=jdbc:postgresql://$_db_ip:5432/'${_database}'" >> flyway.conf'
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
@@ -81,15 +82,15 @@ function flyway_config(){
  evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'
  evaluate 'echo "flyway.validateOnMigrate=true" >> flyway.conf'
  msg "Flyway configuration ..."
- evaluate "cd .."
+ evaluate "cd $_here"
 }
 
 function clearup_docker(){
  _name=$1
- msg "clear up $_name container ..."
- evaluate "docker stop $_name"
+ msg "clearing up $_name container ..."
+ evaluate "docker stop $_name" "SILENT" 
  sleep 1
- evaluate "docker rm $_name"
+ evaluate "docker rm $_name" "SILENT" 
  sleep 1
 }
 
@@ -104,13 +105,9 @@ function cleanUp(){
  evaluate "rm -rf $dir";
  msg "... deleted $dir";
  
- msg "... removing docker db"
- evaluate "docker stop db"; if [ "$?" != "0" ]; then msg "... error stopping db"; fi;
- evaluate "docker rm db"; if [ "$?" != "0" ]; then msg "... error removing db"; fi;
- 
- msg "... removing docker fw"
- evaluate "docker stop fw"; if [ "$?" != "0" ]; then msg "... error stopping fw"; fi;
- evaluate "docker rm fw"; if [ "$?" != "0" ]; then msg "... error removing fw"; fi;
+ #msg "... removing docker db"
+ clearup_docker "db"
+ clearup_docker "fw"
  msg "----------"
 }
 
@@ -158,20 +155,18 @@ function processConfig(){
              _database=$schema
              msg "creating database $_database in docker db"
              
-             sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 8432 -t -c "CREATE DATABASE $_database ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
+             sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 9432 -t -c "CREATE DATABASE $_database ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
            fi;
            msg "..."
       else # label=value
            # clone repo's for canonical & all microservice sections
            if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then msg $(clone $confValue); fi;
            
-           
-           
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then 
              msg "executing flyway scripts at $confValue for $schema"
              clearup_docker "fw"
              evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
-             clearup_docker "fw"
+             #clearup_docker "fw"
            fi
        fi;
     fi;   
@@ -216,8 +211,8 @@ if [ -n "$_configFile" ]; then
     flyway_config
      
     clearup_docker "db"
-    evaluate "docker pull $_db_docker"
-    evaluate "docker run -d -p 8432:5432 --name db -e POSTGRES_PASSWORD=postgres $_db_docker"
+    evaluate "docker pull $_db_docker" "SILENT"
+    evaluate "docker run -d -p 9432:5432 --name db -e POSTGRES_PASSWORD=postgres $_db_docker" "SILENT"
     
     sleep 5 # wait for psql process inside the docker db to get going before trying to connect
   

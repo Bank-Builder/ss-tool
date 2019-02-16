@@ -30,15 +30,23 @@ Usage: ss-tool [OPTION]...
 
 The ss-tool does the following:
 * it clones all the github repos for the listed microservices
-* it spins up a postgres docker image and creates an instance of the \[canonical-database\]
-* it then drops the schemas in the **canonical-database** for which micro-service schema's exist
-* it rebuilds as per the micro-service schema sql file(s) (assuming FlyWay compatible SQL files)
-* it the does a pgdump of the canonical-database sql and commits it back to the canonical repository
+* it spins up a postgres:latest docker image and creates an instance of the \[canonical-database\]
+* it then drops the schemas in the **canonical-database** for micro-service schema which exists
+* it uses a transient docker image boxfuse/flyway:latest to exceute the migration scripts from each microservice
+* it the does a pg_dump of the canonical-database sql and commits it back to the canonical git repository
+
+if the --cleanup flag is not used the updated cannonical database can be accessed
+on localhost:9432 using psql or pgadmin etc. with the username=postgres and password=postgress
+
+you can manualy remove the database when done with:
+<pre>
+docker stop db
+docker rm db
+</pre>
 
 Dependencies:
 * docker
-<pre>sudo apt install docker.io</pre>
-* postgres client
+* postgres - makes use of pg_dump & psql 
 
 (C)Copyright 2019, bank-builder
 License: MIT

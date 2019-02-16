@@ -167,13 +167,15 @@ function processConfig(){
            msg "..."
       else # label=value
            # clone repo's for canonical & all microservice sections
-           if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then msg $(clone $confValue); fi;
+           if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then 
+             msg $(clone $confValue);
+             if [ "$header" == "canonical" ]; then $_canonical_folder=$confValue; fi; ##not foxed yet
+           fi;
            
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then 
              msg "executing flyway scripts at $confValue for $schema"
              clearup_docker "fw"
              evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
-
            fi
        fi;
     fi;   
@@ -217,7 +219,11 @@ if [ -n "$_configFile" ]; then
     _db_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' db)
     flyway_config
     processConfig $_configFile
-
+    #create a script from db for cannonical
+    "PGPASSWORD=postgres pg_dump -h localhost -p 9432 -d canonical --schema-only -U postgres --exclude-schema=public"
+    # over-write it to the canonical git repo
+    # git add , git commit and git push that repo
+    
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg "Done!"
     exit 0; 

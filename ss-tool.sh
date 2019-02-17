@@ -70,7 +70,6 @@ function evaluate(){
  if [ "$_silent" == "1" ] || [ "$2" == "SILENT" ]; then
     eval "$1" > /dev/null 2>&1
  else # don't redirect stdout to null & error to stdout
-    echo "$1"
     eval "$1" 
  fi
  return $?
@@ -104,6 +103,19 @@ function clearup_docker(){
  sleep 1
  evaluate "docker rm $_name" "SILENT" 
  sleep 1
+}
+
+function migrate(){
+#executes flyway in container requires $1=fw_path and $2=schema
+ fw_path=$1
+ fw_schema=$2
+ msg "executing flyway scripts at $fw_path for $fw_schema"
+ clearup_docker "fw"
+ if [ "$fw_schema" != "" ]; then 
+  msg "FLYWAY_SCHEMAS=$fw_schema docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+ else
+  msg "docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+ fi 
 }
 
 
@@ -144,8 +156,8 @@ function clone(){
    msg "git/$folder exists, skipping clone"
  else
    evaluate "cd git"
-   evaluate "$source" "SILENT";
-   evaluate "cd .."
+   evaluate "$source";
+   evaluate "cd $_here"
  fi;
 }
 
@@ -174,30 +186,27 @@ function processConfig(){
              
              sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 9432 -t -c "CREATE DATABASE $_database ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
            fi
-           msg "..."
+           msg " "
       else # label=value
           
            if [ "$confLabel" == "source" ] && [ "$confValue" != "" ]; then
-             folder=$(git_folder "$confValue") 
-             msg "$folder cloned ..."
+             folder=$(git_folder "$confValue")
+             echo "---$folder---"
              if [ "$header" == "canonical" ]; then _canonical_folder="$folder"; fi;
-             evaluate "clone $confValue"
+             echo $(clone "$confValue")
+             msg "$folder cloned ..."
            fi
                       
            if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then
              _canonical_flyway=$confValue
-             msg "executing flyway scripts at $confValue for $schema"
-             clearup_docker "fw"
-             evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+             migrate "$confValue"
            fi
                       
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then
-             msg "executing flyway scripts at $confValue for $schema"
-             clearup_docker "fw"
-             evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+             migrate "$confValue" "_$schema"
            fi
 
-           if [ "$header" == "canonical" ] && [ "$confLabel" == "canonical" ]; then _canonical_sql="$confValue"; fi;
+           if [ "$header" == "canonical" ] && [ "$confLabel" == "sql" ]; then _canonical_sql="$confValue"; fi;
 
        fi;
     fi;   
@@ -260,6 +269,10 @@ if [ -n "$_configFile" ]; then
     evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only --exclude-schema=public -U postgres"
     # git add , git commit, git push upstream
     evaluate "cd $_here/git/$_canonical_folder"
+    echo "$_here/git/$_canonical_folder"
+    
+    exit
+    
     evaluate "git add ."
     evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
     if [ $_push_git == "1" ]; then 

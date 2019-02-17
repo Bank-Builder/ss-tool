@@ -70,6 +70,7 @@ function evaluate(){
  if [ "$_silent" == "1" ] || [ "$2" == "SILENT" ]; then
     eval "$1" > /dev/null 2>&1
  else # don't redirect stdout to null & error to stdout
+    echo "$1"
     eval "$1" 
  fi
  return $?
@@ -86,6 +87,7 @@ function flyway_config(){
  evaluate 'echo "flyway.url=jdbc:postgresql://$_db_ip:5432/'${_database}'" >> flyway.conf'
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
+ evaluate 'echo "flyway.cleanOnValidationError=false" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSeparator=__" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'
@@ -122,25 +124,29 @@ function cleanUp(){
  msg "----------"
 }
 
+function git_folder(){
+ #takes git clone string as parameter
+ ff=$( echo "$1" |cut -d'/' -f2 );
+ ff=$( echo "$ff" |cut -d'.' -f1 );
+ echo "$ff"; #function returns the git folder name
+}
 
 function clone(){
- source=$1  #git clone string
- folder=$( echo "$source" |cut -d'/' -f2 );
- folder=$( echo "$folder" |cut -d'.' -f1 );
- echo "$folder"; #function returns the folder name
+ source=$1 
+ folder=$(git_folder "$source"); 
  evaluate "cd $_here"
  if [ ! -d "git/" ]; then
      evaluate "mkdir git"
  fi;
- 
+
  if [ -d "git/$folder" ]; then
-   evaluate "cd git/$folder"; evaluate "git pull" "SILENT"; evaluate "cd ../.." "SILENT";
+   #evaluate "cd git/$folder"; evaluate "git pull" "SILENT"; evaluate "cd ../.." "SILENT";
+   msg "git/$folder exists, skipping clone"
  else
    evaluate "cd git"
-   evaluate $source "SILENT";
+   evaluate "$source" "SILENT";
    evaluate "cd .."
  fi;
- 
 }
 
 
@@ -172,9 +178,17 @@ function processConfig(){
       else # label=value
           
            if [ "$confLabel" == "source" ] && [ "$confValue" != "" ]; then
-             folder=$(clone $confValue) # clone repo's for canonical & all microservice sections
+             folder=$(git_folder "$confValue") 
              msg "$folder cloned ..."
              if [ "$header" == "canonical" ]; then _canonical_folder="$folder"; fi;
+             evaluate "clone $confValue"
+           fi
+                      
+           if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then
+             _canonical_flyway=$confValue
+             msg "executing flyway scripts at $confValue for $schema"
+             clearup_docker "fw"
+             evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
            fi
                       
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then
@@ -183,7 +197,6 @@ function processConfig(){
              evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
            fi
 
-           if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then _canonical_flyway=$confValue; fi;
            if [ "$header" == "canonical" ] && [ "$confLabel" == "canonical" ]; then _canonical_sql="$confValue"; fi;
 
        fi;
@@ -244,7 +257,7 @@ if [ -n "$_configFile" ]; then
     evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update"
     # export the updated .sql
     evaluate "cd $_here/$_canonical_flyway"
-    evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only -U postgres"
+    evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only --exclude-schema=public -U postgres"
     # git add , git commit, git push upstream
     evaluate "cd $_here/git/$_canonical_folder"
     evaluate "git add ."

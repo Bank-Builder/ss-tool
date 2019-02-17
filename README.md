@@ -5,7 +5,7 @@ into a single canonical database
 
 <pre>
 Usage: ss-tool [OPTION]...
-   Clones the repositories of multiple micro-services as per the ss.conf file
+   Clones the repositories of multiple micro-services as per the ss-tool.conf file
    and drops & recreates these discrete schemas into a single canonical database
    which it then round-trips back into the canonical repository
  

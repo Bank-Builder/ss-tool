@@ -5,7 +5,7 @@
 #-----------------------------------------------------------------------
 
 # Globals
-_version="0.3"
+_version="0.4"
 _silent="0"
 _configFile="ss-tool.conf"
 _cleanup="0"
@@ -24,15 +24,17 @@ function displayHelp(){
  echo " ";
  echo "  OPTIONS:";
  echo "    -f, --file      supply optional file name of alternative ss-tool.conf file";
- echo "    -s, --silent    does not display vebose details";
+ echo "    -s, --silent    does not display verbose details";
  echo "    -c, --cleanup   removes all git cloned sub-directories & docker db when done";
+ echo "    -g, --git-ref   add an optional custom git reference eg 243 to match issue 243";
  echo "        --help      display this help and exit";
  echo "        --version   display version and exit";
  echo "";
  echo "";
  echo "  EXAMPLE(s):";
- echo "      ss-tool --cleanup";
+ echo "      ss-tool --cleanup -g 243";
  echo "           will remove all git cloned repositories & docker db when done";
+ echo "           and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes";
  echo "";
  echo "      ss-tool.conf:";
  echo "          [canonical-database] section";

@@ -14,7 +14,7 @@ _db="db"
 _db_docker="postgres"
 _flyway_docker="boxfuse/flyway"
 _database="canonical"
-_git_ref="$(date +%Y%m%d-%H%M)"
+
 
 function displayHelp(){
  echo "Usage: ss-tool [OPTION]...";
@@ -123,20 +123,20 @@ function clone(){
  source=$1  #git clone string
  folder=$( echo "$source" |cut -d'/' -f2 );
  folder=$( echo "$folder" |cut -d'.' -f1 );
- echo "$folder"; #function returns the folder name
- evaluate "cd $_here"
+ 
  if [ ! -d "git/" ]; then
      evaluate "mkdir git"
  fi;
  
  if [ -d "git/$folder" ]; then
-   evaluate "cd git/$folder"; evaluate "git pull" "SILENT"; evaluate "cd ../.." "SILENT";
+   msg "pulling $folder";
+   evaluate "cd git/$folder"; evaluate "git pull"; evaluate "cd ../..";
  else
+   msg "cloning $source"
    evaluate "cd git"
-   evaluate $source "SILENT";
+   evaluate $source;
    evaluate "cd .."
  fi;
- 
 }
 
 
@@ -163,25 +163,20 @@ function processConfig(){
              msg "creating database $_database in docker db"
              
              sql='PGPASSWORD=postgres psql -U postgres -h localhost -p 9432 -t -c "CREATE DATABASE $_database ENCODING = "\""UTF8"\"" TABLESPACE = pg_default OWNER = postgres;"'; evaluate $sql
-           fi
+           fi;
            msg "..."
       else # label=value
-          
-           if [ "$confLabel" == "source" ] && [ "$confValue" != "" ]; then
-             folder=$(clone $confValue) # clone repo's for canonical & all microservice sections
-             msg "$folder cloned ..."
-             if [ "$header" == "canonical" ]; then _canonical_folder="$folder"; fi;
-           fi
-                      
-           if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then
+           # clone repo's for canonical & all microservice sections
+           if [ "$confLabel" = "source" ] && [ "$confValue" != "" ]; then 
+             msg $(clone $confValue);
+             if [ "$header" == "canonical" ]; then $_canonical_folder=$confValue; fi; ##not foxed yet
+           fi;
+           
+           if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then 
              msg "executing flyway scripts at $confValue for $schema"
              clearup_docker "fw"
              evaluate "docker run --name fw --rm -v $_here/$confValue:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
            fi
-
-           if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then _canonical_flyway=$confValue; fi;
-           if [ "$header" == "canonical" ] && [ "$confLabel" == "canonical" ]; then _canonical_sql="$confValue"; fi;
-
        fi;
     fi;   
   
@@ -205,10 +200,7 @@ while [[ "$#" > 0 ]]; do
         -c|--cleanup) 
             _cleanup="1";
             ;;
-        -g|--git-ref) 
-            _git_ref="$2";
-            shift;;
-         *) echo "Unknown parameter passed: $1"; exit 1;;
+        *) echo "Unknown parameter passed: $1"; exit 1;;
     esac; 
     shift; 
 done
@@ -228,23 +220,9 @@ if [ -n "$_configFile" ]; then
     flyway_config
     processConfig $_configFile
     #create a script from db for cannonical
-    
-    
-    
-    # cd into the canonical repo
-    evaluate "cd $_here/git/$_canonical_folder"
-    # create branch & switch to it
-    evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update"
-    # export the updated .sql
-    evaluate "cd $_here/$_canonical_flyway"
-    evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only -U postgres"
-    # git add , git commit, git push upstream
-    evaluate "cd $_here/git/$_canonical_folder"
-    evaluate "git add ."
-    evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-    evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
-    evaluate "git checkout master"
-    evaluate "cd $_here"
+    "PGPASSWORD=postgres pg_dump -h localhost -p 9432 -d canonical --schema-only -U postgres --exclude-schema=public"
+    # over-write it to the canonical git repo
+    # git add , git commit and git push that repo
     
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg "Done!"

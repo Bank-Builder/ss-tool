@@ -16,6 +16,9 @@ _flyway_docker="boxfuse/flyway"
 _database="canonical"
 _git_ref="$(date +%Y%m%d-%H%M)"
 _push_git="0"
+_fw_path=""
+_fw_schema=""
+
 
 function displayHelp(){
  echo "Usage: ss-tool [OPTION]...";
@@ -87,6 +90,7 @@ function flyway_config(){
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
  evaluate 'echo "flyway.cleanOnValidationError=false" >> flyway.conf'
+ evaluate 'echo "flyway.outoforder=true" >> flyway.conf' 
  evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSeparator=__" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'
@@ -105,17 +109,23 @@ function clearup_docker(){
  sleep 1
 }
 
+function plan_migration(){
+  if [ "$_fw_path" == "" ]; then 
+    _fw_path=$1; 
+  else 
+    _fw_path="$_fw_path,$1"
+  fi
+
+  if [ "$_fw_schema" == "" ]; then 
+    _fw_schema="public"; 
+  else 
+    _fw_schema="$_fw_schema,$2"
+  fi
+}
+
 function migrate(){
-#executes flyway in container requires $1=fw_path and $2=schema
- fw_path=$1
- fw_schema=$2
- msg "executing flyway scripts at $fw_path for $fw_schema"
  clearup_docker "fw"
- if [ "$fw_schema" != "" ]; then 
-  msg "FLYWAY_SCHEMAS=$fw_schema docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
- else
-  msg "docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
- fi 
+ msg "FLYWAY_SCHEMAS=$_fw_schema FLYWAY_LOCATIONS=$_fw_path docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
 }
 
 
@@ -199,11 +209,11 @@ function processConfig(){
                       
            if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then
              _canonical_flyway=$confValue
-             migrate "$confValue"
+             plan_migration "$confValue"
            fi
                       
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then
-             migrate "$confValue" "_$schema"
+             plan_migration "$confValue" "_$schema"
            fi
 
            if [ "$header" == "canonical" ] && [ "$confLabel" == "sql" ]; then _canonical_sql="$confValue"; fi;
@@ -256,6 +266,7 @@ if [ -n "$_configFile" ]; then
     _db_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' db)
     flyway_config
     processConfig $_configFile
+    migrate
 
     if [ $_push_git == "1" ]; then # create branch & switch to it
        evaluate "cd $_here/git/$_canonical_folder"

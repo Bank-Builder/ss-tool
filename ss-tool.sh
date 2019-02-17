@@ -11,10 +11,11 @@ _configFile="ss-tool.conf"
 _cleanup="0"
 _here=$(pwd)
 _db="db"
-_db_docker="postgres"
+_db_docker="postgres:10"
 _flyway_docker="boxfuse/flyway"
 _database="canonical"
 _git_ref="$(date +%Y%m%d-%H%M)"
+_push_git="0"
 
 function displayHelp(){
  echo "Usage: ss-tool [OPTION]...";
@@ -27,6 +28,7 @@ function displayHelp(){
  echo "    -s, --silent    does not display verbose details";
  echo "    -c, --cleanup   removes all git cloned sub-directories & docker db when done";
  echo "    -g, --git-ref   add an optional custom git reference eg 243 to match issue 243";
+ echo "    -p, --push-git  push to GitHub, default behaviour creates branch but does not push";
  echo "        --help      display this help and exit";
  echo "        --version   display version and exit";
  echo "";
@@ -207,6 +209,9 @@ while [[ "$#" > 0 ]]; do
         -c|--cleanup) 
             _cleanup="1";
             ;;
+        -p|--push-git) 
+            _push_git="1";
+            ;;            
         -g|--git-ref) 
             _git_ref="$2";
             shift;;
@@ -244,8 +249,10 @@ if [ -n "$_configFile" ]; then
     evaluate "cd $_here/git/$_canonical_folder"
     evaluate "git add ."
     evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-    evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
-    evaluate "git checkout master"
+    if [ $_push_git == "1" ]; then 
+      evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
+    fi; 
+    #evaluate "git checkout master"
     evaluate "cd $_here"
     
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 

@@ -14,6 +14,7 @@ Usage: ss-tool [OPTION]...
     -s, --silent    does not display verbose details
     -c, --cleanup   removes all git cloned sub-directories & docker db when done
     -g, --git-ref   add an optional custom git reference eg 243 to match issue 243
+    -p, --push-git  push to GitHub, default behaviour creates branch but does not push
         --help      display this help and exit
         --version   display version and exit
 

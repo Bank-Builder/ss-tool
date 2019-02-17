@@ -256,26 +256,19 @@ if [ -n "$_configFile" ]; then
     _db_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' db)
     flyway_config
     processConfig $_configFile
-    #create a script from db for cannonical
+
+    if [ $_push_git == "1" ]; then # create branch & switch to it
+       evaluate "cd $_here/git/$_canonical_folder"
+       evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update"; 
+    fi
     
-    
-    
-    # cd into the canonical repo
-    evaluate "cd $_here/git/$_canonical_folder"
-    # create branch & switch to it
-    evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update"
-    # export the updated .sql
     evaluate "cd $_here/$_canonical_flyway"
-    evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only --exclude-schema=public -U postgres"
-    # git add , git commit, git push upstream
-    evaluate "cd $_here/git/$_canonical_folder"
-    echo "$_here/git/$_canonical_folder"
-    
-    exit
-    
-    evaluate "git add ."
-    evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-    if [ $_push_git == "1" ]; then 
+    evaluate "PGPASSWORD=postgres pg_dump --file=$_canonical_sql -h localhost -p 9432 -d canonical --schema-only -U postgres"
+
+    if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
+      evaluate "cd $_here/git/$_canonical_folder"  
+      evaluate "git add db/$_canonical_sql"
+      evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
       evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
     fi; 
     #evaluate "git checkout master"

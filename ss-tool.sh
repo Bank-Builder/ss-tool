@@ -90,7 +90,7 @@ function flyway_config(){
  evaluate 'echo "flyway.user=postgres" >> flyway.conf'
  evaluate 'echo "flyway.password=postgres" >> flyway.conf'
  evaluate 'echo "flyway.cleanOnValidationError=false" >> flyway.conf'
- evaluate 'echo "flyway.outoforder=true" >> flyway.conf' 
+ #evaluate 'echo "flyway.outoforder=true" >> flyway.conf' 
  evaluate 'echo "flyway.sqlMigrationPrefix=V" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSeparator=__" >> flyway.conf'
  evaluate 'echo "flyway.sqlMigrationSuffix=.sql" >> flyway.conf'

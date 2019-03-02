@@ -53,4 +53,5 @@ Dependencies:
 * postgres - makes use of pg_dump & psql 
 
 Copyright &copy; 2019, bank-builder
-License: MIT
+
+License: MIT and ![CC 4.0](https://licensebuttons.net/l/by/4.0/88x31.png)

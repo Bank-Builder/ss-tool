@@ -52,5 +52,5 @@ Dependencies:
 * docker
 * postgres - makes use of pg_dump & psql 
 
-(C)Copyright 2019, bank-builder
+Copyright &copy; 2019, bank-builder
 License: MIT

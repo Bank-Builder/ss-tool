@@ -123,9 +123,36 @@ function plan_migration(){
   fi
 }
 
+function flyway_migration() {
+  if [ "$1" == "" ]; then 
+    exit;
+  else 
+    flyway_path="$1"
+  fi
+
+  if [ "$2" == "" ]; then 
+    flyway_schema="public"; 
+  else 
+    flyway_schema="public,$2"
+  fi
+
+  migration_script="FLYWAY_SCHEMAS=$flyway_schema FLYWAY_LOCATIONS=$flyway_path docker run --name fw --rm -v $_here/$flyway_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker -ignoreMissingMigrations=true -outOfOrder=true migrate"
+  msg $migration_script
+  evaluate $migration_script
+}
+
 function migrate(){
+  # paths need to match schemas, which need to match volume mounts...
  clearup_docker "fw"
- msg "FLYWAY_SCHEMAS=$_fw_schema FLYWAY_LOCATIONS=$_fw_path docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+ IFS=',' read -ra git_paths <<< "$_fw_path"
+ IFS=',' read -ra schemas <<< "$_fw_schema"
+
+ for path_i in "${git_paths[@]}"; do
+   # process "$path_i"
+   msg "FLYWAY_SCHEMAS=$_fw_schema FLYWAY_LOCATIONS=$path_i docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+   #evaluate "FLYWAY_SCHEMAS=$_fw_schema FLYWAY_LOCATIONS=$path_i docker run --name fw --rm -v $_here/$fw_path:/flyway/sql -v $_here/flyway:/flyway/conf $_flyway_docker migrate"
+ done
+ 
 }
 
 
@@ -209,11 +236,13 @@ function processConfig(){
                       
            if [ "$header" == "canonical" ] && [ "$confLabel" == "flyway" ]; then
              _canonical_flyway=$confValue
-             plan_migration "$confValue"
+             # plan_migration "$confValue"
+             flyway_migration "$confValue"
            fi
                       
            if [ "$header" == "microservice" ] && [ "$confLabel" == "flyway" ]; then
-             plan_migration "$confValue" "_$schema"
+             # plan_migration "$confValue" "_$schema"
+             flyway_migration "$confValue" "_$schema"
            fi
 
            if [ "$header" == "canonical" ] && [ "$confLabel" == "sql" ]; then _canonical_sql="$confValue"; fi;
@@ -292,4 +321,4 @@ fi;
 
 echo "Try ss-tool --help for help";
 echo "";
-#FINIS
+#FINISH

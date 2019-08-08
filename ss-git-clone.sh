@@ -112,17 +112,29 @@ function clone(){
     fi;
 }
 
-template=`cat <<-EOF
-Usage: '$folder ' folder: ${folder} 
- folder with round:  
- oon another line $USER $(uname)
-EOF`
+docker_compose_template() {
+    cat <<EOF    
+version: '3'
+services:
+  migrate-${folder}:
+    container_name: "compose-flyway-${folder}"
+    image: "boxfuse/flyway:latest"
+    command: -url=jdbc:postgresql://postgresql:5432/canonical -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/ocs -user=postgres -password=postgres -connectRetries=60  migrate
+    volumes:
+      - .${flywayLocationConf}:/flyway/sql/${folder}
+    depends_on:
+      - postgresql 
+EOF
+}
+
+
 
 function processConfig(){
  conf="$1"
- IFS=$'\n'
+ IFS=$'\n'  # make newlines the only separator
 
- for line in $(cat $conf)
+ #for line in $(cat $conf)
+ while read line 
  do
    line=$(trim $line)
    confLabel=$( echo "$line" |cut -d'=' -f1 );
@@ -143,19 +155,23 @@ function processConfig(){
              folder=$(git_folder "$confValue")
              echo "---$folder---"
              if [ "$header" == "canonical" ]; then _canonical_folder="$folder"; fi;
-             #echo $(clone "$confValue")
+             echo $(clone "$confValue")  #clones the git repo from source tag in conf file
              msg "$folder cloned ..."
              
+             read line   
+             flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
+              
              OLDIFS="${IFS}"
              IFS=
-             evaluate 'echo "'${template}'" > $folder.yml'
-             IFS="${OLDIFS}"             
-           fi
-                      
+             docker_compose_template > $folder.yml
+             IFS="${OLDIFS}"   
+             msg "$folder docker-compose created ..."          
+           fi            
        fi;
     fi;   
-  
- done
+ 
+ done < $conf
+ #done
  
 }
 
@@ -195,6 +211,7 @@ if [ -n "$_configFile" ]; then
     processConfig $_configFile
     
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
+    msg ""
     msg "Done!"
     exit 0; 
 fi;

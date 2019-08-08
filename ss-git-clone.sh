@@ -112,6 +112,11 @@ function clone(){
     fi;
 }
 
+template=`cat <<-EOF
+Usage: '$folder ' folder: ${folder} 
+ folder with round:  
+ oon another line $USER $(uname)
+EOF`
 
 function processConfig(){
  conf="$1"
@@ -138,8 +143,13 @@ function processConfig(){
              folder=$(git_folder "$confValue")
              echo "---$folder---"
              if [ "$header" == "canonical" ]; then _canonical_folder="$folder"; fi;
-             echo $(clone "$confValue")
+             #echo $(clone "$confValue")
              msg "$folder cloned ..."
+             
+             OLDIFS="${IFS}"
+             IFS=
+             evaluate 'echo "'${template}'" > $folder.yml'
+             IFS="${OLDIFS}"             
            fi
                       
        fi;

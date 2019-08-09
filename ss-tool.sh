@@ -231,9 +231,17 @@ if [ -n "$_configFile" ]; then
     #line 21: CREATE SCHEMA _documents;
     #line 29: CREATE EXTENSION IF NOT EXISTS "pgcrypto";    
     
-    evaluate "mkdir -p $_here/canonical_flyway"
-    evaluate "cd $_here/canonical_flyway"
-    evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/canonical_flyway/$_canonical_sql"
+    evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
+    evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
+    
+    if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
+      evaluate "cd $_here/flyway_data/$_canonical_folder"  
+      evaluate "git add $_canonical_sql"
+      evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
+      #evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
+      evaluate "git push"
+    fi
+    evaluate "cd $_here"
         
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""

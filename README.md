@@ -50,7 +50,6 @@ docker-compose down -v --remove-orphans
 Dependencies:
 * docker
 * docker-compose
-* postgres - makes use of pg_dump & psql 
 
 Copyright &copy; 2019, bank-builder
 

@@ -165,11 +165,11 @@ function processConfig(){
              
              if [ "$header" == "canonical" ]; then _canonical_sql="$flywaySchemaConf"; fi
              
-             if [ "$header" == "microservice" ]; then  _docker_compose_overides="$_docker_compose_overides -f $folder.yml"; fi
+             if [ "$header" == "microservice" ]; then  _docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; fi
                
              OLDIFS="${IFS}"
              IFS=
-             docker_compose_template > $folder.yml
+             docker_compose_template > flyway_data/$folder.yml
              IFS="${OLDIFS}"   
              msg "$folder docker-compose created ..."          
            fi  			
@@ -219,11 +219,17 @@ if [ -n "$_configFile" ]; then
     msg "======================";
     msg "" 
     msg "Starting postgres & flyway migrations for each microservice ... " 
-    evaluate "docker-compose -f docker-compose.yml -f public.yml $_docker_compose_overides up -d"
+    _docker_compose_cmd="docker-compose -f docker-compose.yml -f public.yml $_docker_compose_overides up -d"
+    msg "$_docker_compose_cmd"
+    evaluate "$_docker_compose_cmd"
      
     msg "Sleeping for 10!" 
     sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
+    
+    #TODO tail docker-compose logs for ERROR:  and fail this if there is one
+    #line 21: CREATE SCHEMA _documents;
+    #line 29: CREATE EXTENSION IF NOT EXISTS "pgcrypto";  
     
     evaluate "mkdir -p $_here/canonical_flyway"
     evaluate "cd $_here/canonical_flyway"

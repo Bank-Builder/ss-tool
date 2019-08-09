@@ -82,7 +82,8 @@ function cleanUp(){
     msg "iterating through and removing cloned repo sub-directories"
  
     evaluate "cd $_here"  
-    evaluate "rm -rf flyway_data";
+    evaluate "docker-compose down -v";
+    evaluate "rm -rf flyway_data";    
     msg "... deleted flyway_data";
     msg "----------"
 }
@@ -103,7 +104,6 @@ function clone(){
     fi;
 
     if [ -d "flyway_data/$folder" ]; then
-        #evaluate "cd flyway_data/$folder"; evaluate "git pull" "SILENT"; evaluate "cd ../.." "SILENT";
         msg "flyway_data/$folder exists, skipping clone"
     else
         evaluate "cd flyway_data"
@@ -162,13 +162,17 @@ function processConfig(){
              flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
              read line   
              flywaySchemaConf=$( echo "$line" |cut -d'=' -f2 );
-              
+             
+             if [ "$header" == "canonical" ]; then _canonical_sql="$flywaySchemaConf"; fi
+             
+             if [ "$header" == "microservice" ]; then  _docker_compose_overides="$_docker_compose_overides -f $folder.yml"; fi
+               
              OLDIFS="${IFS}"
              IFS=
              docker_compose_template > $folder.yml
              IFS="${OLDIFS}"   
              msg "$folder docker-compose created ..."          
-           fi            
+           fi  			
        fi;
     fi;   
  
@@ -209,9 +213,22 @@ if [ -n "$_configFile" ]; then
         msg "ss-tool ver $_version"
         msg "======================";
     fi
-   
+       
     processConfig $_configFile
+     
+    msg "======================";
+    msg "" 
+    msg "Starting postgres & flyway migrations for each microservice ... " 
+    evaluate "docker-compose -f docker-compose.yml -f public.yml $_docker_compose_overides up -d"
+     
+    msg "Sleeping for 10!" 
+    sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
+    msg "Done Sleeping!"
     
+    evaluate "mkdir -p $_here/canonical_flyway"
+    evaluate "cd $_here/canonical_flyway"
+    evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/canonical_flyway/$_canonical_sql"
+        
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""
     msg "Done!"

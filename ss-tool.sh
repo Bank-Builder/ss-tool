@@ -119,7 +119,7 @@ services:
   migrate-${folder}:
     container_name: "compose-flyway-${folder}"
     image: "boxfuse/flyway:latest"
-    command: -url=jdbc:postgresql://postgresql:5432/${_database} -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${folder} -user=postgres -password=postgres -connectRetries=60  migrate
+    command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${folder} -user=postgres -password=postgres -connectRetries=60  migrate
     volumes:
       - ./flyway_data/${flywayLocationConf}:/flyway/sql/${folder}
     depends_on:
@@ -160,6 +160,8 @@ function processConfig(){
              
              read line   
              flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
+             read line   
+             flywaySchemaConf=$( echo "$line" |cut -d'=' -f2 );
               
              OLDIFS="${IFS}"
              IFS=

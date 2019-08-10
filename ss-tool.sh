@@ -243,8 +243,7 @@ if [ -n "$_configFile" ]; then
 	     	#TODO: below is a temp message whilst we iron out where schema creationg and public setup is
 	     	msg ""
 		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
-		    msg "NOTE:: The docker-compose with flyway migrate steps has actually failed, we need to add additional steps to this script to check for ERRORs on the docker-compose logs"
-		    msg "To continue please comment out these lines in the following files::"
+		    msg "NOTE:: if this is the first time you running the ss-tool with dokuti and tilkynna to correct this failure comment out these lines in the following files::"
 		    msg " - line 21: CREATE SCHEMA _documents;     in file flyway_data/dokuti/src/main/resources/db/migration/V1__init.sql"
 		    msg " - line 29: CREATE EXTENSION IF NOT EXISTS pgcrypto;      in file flyway_data/tilkynna/src/main/resources/db/migration/postgresql/V1__init.sql"
 		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
@@ -268,7 +267,7 @@ if [ -n "$_configFile" ]; then
         
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""
-    msg "Done!"
+    msg "Done! SQL for Canonical DB is at: '$_here/flyway_data/$_canonical_folder/$_canonical_sql'"
     exit 0; 
 fi;
 

@@ -165,7 +165,10 @@ function processConfig(){
              
              if [ "$header" == "canonical" ]; then _canonical_sql="$flywaySchemaConf"; fi
              
-             if [ "$header" == "microservice" ]; then  _docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; fi
+             if [ "$header" == "microservice" ]; then  
+             	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; 
+             	_microservices_list="$_microservices_list$folder "
+             fi
                
              OLDIFS="${IFS}"
              IFS=
@@ -227,9 +230,29 @@ if [ -n "$_configFile" ]; then
     sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
     
-    #TODO tail docker-compose logs for ERROR:  and fail this if there is one   compose-flyway-dokuti exited with code 1
-    #line 21: CREATE SCHEMA _documents;
-    #line 29: CREATE EXTENSION IF NOT EXISTS "pgcrypto";    
+    OLDIFS="${IFS}"
+    IFS=' '
+    for i in $(echo $_microservices_list | sed "s/,/ /g")
+    do
+	    error_count=$(docker logs compose-flyway-$i 2>&1 | grep "ERROR" | wc -l)
+	    if [ "$error_count" -gt 0 ]; then
+	        msg ""
+	     	msg "FAILED:: $error_count errors in $i flyway logs";
+	     	msg "  View these by running 'docker logs compose-flyway-$i '"
+	     	
+	     	#TODO: below is a temp message whilst we iron out where schema creationg and public setup is
+	     	msg ""
+		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
+		    msg "NOTE:: The docker-compose with flyway migrate steps has actually failed, we need to add additional steps to this script to check for ERRORs on the docker-compose logs"
+		    msg "To continue please comment out these lines in the following files::"
+		    msg " - line 21: CREATE SCHEMA _documents;     in file flyway_data/dokuti/src/main/resources/db/migration/V1__init.sql"
+		    msg " - line 29: CREATE EXTENSION IF NOT EXISTS pgcrypto;      in file flyway_data/tilkynna/src/main/resources/db/migration/postgresql/V1__init.sql"
+		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
+		    
+	     	exit 0; 
+	    fi	     
+	done
+    IFS="${OLDIFS}"
     
     evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
     evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
@@ -246,13 +269,6 @@ if [ -n "$_configFile" ]; then
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""
     msg "Done!"
-    msg ""
-    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
-    msg "NOTE:: The docker-compose with flyway migrate steps has actually failed, we need to add additional steps to this script to check for ERRORs on the docker-compose logs"
-    msg "To continue please comment out these lines in the following files::"
-    msg " - line 21: CREATE SCHEMA _documents;     in file flyway_data/dokuti/src/main/resources/db/migration/V1__init.sql"
-    msg " - line 29: CREATE EXTENSION IF NOT EXISTS pgcrypto;      in file flyway_data/tilkynna/src/main/resources/db/migration/postgresql/V1__init.sql"
-    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
     exit 0; 
 fi;
 

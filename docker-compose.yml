@@ -3,10 +3,14 @@ services:
   postgresql:
     image: "postgres:10.7-alpine"
     restart: always
+    command: "-c 'config_file=/etc/postgresql/postgresql.conf'"
     ports:
-      - "5432:5432"
+      - "9432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_DB=canonical
+    volumes: 
+      - ./postgres.conf:/etc/postgresql/postgresql.conf
+
 
       

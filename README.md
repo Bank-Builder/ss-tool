@@ -44,13 +44,12 @@ on localhost:9432 using psql or pgadmin etc. with the username=postgres and pass
 
 you can manually remove the database when done with:
 <pre>
-docker stop db
-docker rm db
+docker-compose down -v --remove-orphans
 </pre>
 
 Dependencies:
 * docker
-* postgres - makes use of pg_dump & psql 
+* docker-compose
 
 Copyright &copy; 2019, bank-builder
 

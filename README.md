@@ -36,7 +36,7 @@ The ss-tool does the following:
 * it clones all the github repos for the listed micro-services
 * it spins up a postgres:latest docker image and creates an instance of the \[canonical-database\]
 * it then drops the schemas in the **canonical-database** for micro-service schema which exists
-* it uses a transient docker image boxfuse/flyway:latest to execute the migration scripts from each micro-service
+* it uses a transient docker image flyway/flyway:latest to execute the migration scripts from each micro-service
 * it the does a pg_dump of the canonical-database sql and commits it back to the canonical git repository
 
 if the --cleanup flag is not used the updated canonical database can be accessed

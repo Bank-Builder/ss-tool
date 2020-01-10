@@ -82,7 +82,7 @@ function cleanUp(){
     msg "iterating through and removing cloned repo sub-directories"
  
     evaluate "cd $_here"  
-    evaluate "docker-compose down -v";
+    evaluate "docker-compose down -v --remove-orphans";
     evaluate "rm -rf flyway_data";    
     msg "... deleted flyway_data";
     msg "----------"
@@ -99,6 +99,7 @@ function clone(){
     source=$1 
     folder=$(git_folder "$source"); 
     evaluate "cd $_here"
+    msg "cloning..."
     if [ ! -d "flyway_data/" ]; then
         evaluate "mkdir flyway_data"
     fi;
@@ -118,7 +119,7 @@ version: '3'
 services:
   migrate-${folder}:
     container_name: "compose-flyway-${folder}"
-    image: "boxfuse/flyway:latest"
+    image: "flyway/flyway:latest"
     command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${folder} -user=postgres -password=postgres -connectRetries=60  migrate
     volumes:
       - ./flyway_data/${flywayLocationConf}:/flyway/sql/${folder}
@@ -127,7 +128,13 @@ services:
 EOF
 }
 
-
+function cleanSchemaCreate(){
+  for filename in $1/*.sql; do
+    msg "checking $filename"
+    sed -i 's/CREATE SCHEMA/-- CREATE SCHEMA/g' $filename
+    sed -i 's/DROP SCHEMA/-- DROP SCHEMA/g' $filename
+  done
+}
 
 function processConfig(){
  conf="$1"
@@ -160,16 +167,20 @@ function processConfig(){
              
              read line   
              flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
+             cleanSchemaCreate "flyway_data/$flywayLocationConf"
              read line   
              flywaySchemaConf=$( echo "$line" |cut -d'=' -f2 );
              
-             if [ "$header" == "canonical" ]; then _canonical_sql="$flywaySchemaConf"; fi
+             if [ "$header" == "canonical" ]; then 
+               _canonical_sql="$flywaySchemaConf";
+               $flywaySchemaConf = "public";
+             fi
              
              if [ "$header" == "microservice" ]; then  
              	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; 
              	_microservices_list="$_microservices_list$folder "
              fi
-               
+             
              OLDIFS="${IFS}"
              IFS=
              docker_compose_template > flyway_data/$folder.yml
@@ -226,8 +237,8 @@ if [ -n "$_configFile" ]; then
     msg "$_docker_compose_cmd"
     evaluate "$_docker_compose_cmd"
      
-    msg "Sleeping for 10!" 
-    sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
+    msg "Sleeping for 20!" 
+    sleep 20 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
     
     OLDIFS="${IFS}"
@@ -254,7 +265,7 @@ if [ -n "$_configFile" ]; then
     IFS="${OLDIFS}"
     
     evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
-    evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
+    evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
     
     if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
       evaluate "cd $_here/flyway_data/$_canonical_folder"  

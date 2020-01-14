@@ -109,20 +109,19 @@ function clone(){
     if [ -d "flyway_data/$folder" ]; then
         msg "flyway_data/$folder exists, skipping clone"
     else
-        # https://github.blog/2012-09-21-easier-builds-and-deployments-using-git-over-https-and-oauth/
-        # using git pull so that credentials are not persisted
-
         evaluate "cd flyway_data"
         if [ -z "$_token" ]; then
            # use git clone
            evaluate "$source";
         else
-          # use git pull with token
+          # https://github.blog/2012-09-21-easier-builds-and-deployments-using-git-over-https-and-oauth/
+          # using git pull so that token credentials are not persisted
           evaluate "mkdir $folder"
           evaluate "cd $folder"
           evaluate "git init"
-          gitpull="git pull https://$_token@github.com/"$( echo "$source" | rev | cut -d':' -f1 | rev );
-          evaluate "$gitpull";
+          gitpull="https://$_token@github.com/"$( echo "$source" | rev | cut -d':' -f1 | rev );
+          evaluate "git pull $gitpull";
+          evaluate "git remote add origin $gitpull"
         fi;
 	evaluate "cd $_here"
     fi;

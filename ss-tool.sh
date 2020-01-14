@@ -5,7 +5,7 @@
 #-----------------------------------------------------------------------
 
 # Globals
-_version="0.5"
+_version="0.6"
 _silent="0"
 _configFile="ss-tool.conf"
 _cleanup="0"
@@ -16,6 +16,7 @@ _git_ref="$(date +%Y%m%d-%H%M)"
 _push_git="0"
 _fw_path=""
 _fw_schema=""
+_token=""
 
 
 function displayHelp(){
@@ -30,6 +31,7 @@ function displayHelp(){
     echo "    -c, --cleanup   removes all git cloned sub-directories & docker db when done";
     echo "    -g, --git-ref   add an optional custom git reference eg 243 to match issue 243";
     echo "    -p, --push-git  push to GitHub, default behaviour creates branch but does not push";
+    echo "    -t, --token     the authorization token to use when pulling from a git repo";
     echo "        --help      display this help and exit";
     echo "        --version   display version and exit";
     echo "";
@@ -99,6 +101,8 @@ function clone(){
     source=$1 
     folder=$(git_folder "$source"); 
     evaluate "cd $_here"
+
+    msg "Cloning -> $source into folder $folder"
     
     if [ ! -d "flyway_data/" ]; then
         evaluate "mkdir flyway_data"
@@ -107,9 +111,25 @@ function clone(){
     if [ -d "flyway_data/$folder" ]; then
         msg "flyway_data/$folder exists, skipping clone"
     else
+        # https://github.blog/2012-09-21-easier-builds-and-deployments-using-git-over-https-and-oauth/
+        # using git pull so that credentials are not persisted
+
         evaluate "cd flyway_data"
-        evaluate "$source";
-        evaluate "cd $_here"
+        if [ -z "$_token" ]; then
+           # use git clone
+           msg "Using git clone..."
+           evaluate "$source";
+        else
+          # use git pull with token
+          msg "Using git pull..." 
+          evaluate "mkdir $folder"
+          evaluate "cd $folder"
+          evaluate "git init"
+          gitpull="git pull https://$_token@github.com/"$( echo "$source" | rev | cut -d':' -f1 | rev );
+          msg "pulling from $gitpull"
+          evaluate "$gitpull";
+        fi;
+	evaluate "cd $_here"
     fi;
 }
 
@@ -167,7 +187,7 @@ function processConfig(){
              
              read line   
              flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
-             cleanSchemaCreate "flyway_data/$flywayLocationConf"
+             
              read line   
              flywaySchemaConf=$( echo "$line" |cut -d'=' -f2 );
              
@@ -176,7 +196,8 @@ function processConfig(){
                $flywaySchemaConf = "public";
              fi
              
-             if [ "$header" == "microservice" ]; then  
+             if [ "$header" == "microservice" ]; then
+                cleanSchemaCreate "flyway_data/$flywayLocationConf"  
              	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; 
              	_microservices_list="$_microservices_list$folder "
              fi
@@ -217,6 +238,9 @@ while [[ "$#" > 0 ]]; do
         -g|--git-ref) 
             _git_ref="$2";
             shift;;
+        -t|--token) 
+            _token="$2";
+            shift;; 
          *) echo "Unknown parameter passed: $1"; exit 1;;
     esac; 
     shift; 
@@ -224,7 +248,7 @@ done
 
 if [ -n "$_configFile" ]; then
     if [ "$_silent" == "0" ]; then 
-        msg "ss-tool ver $_version"
+        msg "ss-tool version $_version"
         msg "======================";
     fi
        
@@ -237,8 +261,8 @@ if [ -n "$_configFile" ]; then
     msg "$_docker_compose_cmd"
     evaluate "$_docker_compose_cmd"
      
-    msg "Sleeping for 20!" 
-    sleep 20 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
+    msg "Sleeping for 10!" 
+    sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
     
     OLDIFS="${IFS}"
@@ -268,11 +292,11 @@ if [ -n "$_configFile" ]; then
     evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
     
     if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
-      evaluate "cd $_here/flyway_data/$_canonical_folder"  
+      evaluate "cd $_here/flyway_data/$_canonical_folder"
+      evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update" 
       evaluate "git add $_canonical_sql"
       evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-      #evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
-      evaluate "git push"
+      evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
     fi
     evaluate "cd $_here"
         

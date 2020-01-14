@@ -117,16 +117,13 @@ function clone(){
         evaluate "cd flyway_data"
         if [ -z "$_token" ]; then
            # use git clone
-           msg "Using git clone..."
            evaluate "$source";
         else
           # use git pull with token
-          msg "Using git pull..." 
           evaluate "mkdir $folder"
           evaluate "cd $folder"
           evaluate "git init"
           gitpull="git pull https://$_token@github.com/"$( echo "$source" | rev | cut -d':' -f1 | rev );
-          msg "pulling from $gitpull"
           evaluate "$gitpull";
         fi;
 	evaluate "cd $_here"

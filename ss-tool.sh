@@ -99,7 +99,7 @@ function clone(){
     source=$1 
     folder=$(git_folder "$source"); 
     evaluate "cd $_here"
-
+    msg "cloning..."
     if [ ! -d "flyway_data/" ]; then
         evaluate "mkdir flyway_data"
     fi;
@@ -233,7 +233,7 @@ if [ -n "$_configFile" ]; then
     msg "======================";
     msg "" 
     msg "Starting postgres & flyway migrations for each microservice ... " 
-    _docker_compose_cmd="docker-compose -f docker-compose.yml -f public.yml $_docker_compose_overides up -d"
+    _docker_compose_cmd="docker-compose -f docker-compose.yml $_docker_compose_overides up -d"
     msg "$_docker_compose_cmd"
     evaluate "$_docker_compose_cmd"
      

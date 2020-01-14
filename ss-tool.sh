@@ -169,7 +169,7 @@ function processConfig(){
            
            header=$( echo "$section" |cut -d':' -f1 );
            schema=$( echo "$section" |cut -d':' -f2 );
-           msg " "
+           msg "  "
       else # label=value
           
            if [ "$confLabel" == "source" ] && [ "$confValue" != "" ]; then
@@ -192,13 +192,13 @@ function processConfig(){
              
              if [ "$header" == "microservice" ]; then
                 cleanSchemaCreate "flyway_data/$flywayLocationConf"  
-             	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; 
-             	_microservices_list="$_microservices_list$folder "
+             	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$schema.yml"; 
+             	_microservices_list="$_microservices_list$schema "
              fi
              
              OLDIFS="${IFS}"
              IFS=
-             docker_compose_template > flyway_data/$folder.yml
+             docker_compose_template > flyway_data/$schema.yml
              IFS="${OLDIFS}"   
              msg "$folder docker-compose created ..."          
            fi  			

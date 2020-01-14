@@ -101,8 +101,6 @@ function clone(){
     source=$1 
     folder=$(git_folder "$source"); 
     evaluate "cd $_here"
-
-    msg "Cloning -> $source into folder $folder"
     
     if [ ! -d "flyway_data/" ]; then
         evaluate "mkdir flyway_data"

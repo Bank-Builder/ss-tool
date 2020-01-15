@@ -15,13 +15,15 @@ Usage: ss-tool [OPTION]...
     -c, --cleanup   removes all git cloned sub-directories & docker db when done
     -g, --git-ref   add an optional custom git reference eg 243 to match issue 243
     -p, --push-git  push to GitHub, default behaviour creates branch but does not push
+    -t, --token     the [authorization token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line) to use when pulling from a git repo
         --help      display this help and exit
         --version   display version and exit
 
 
   EXAMPLE(s):
-      ss-tool --cleanup -g 243
-           will remove all git cloned repositories & docker db when done
+      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN
+           will use the [github personal access token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line) to clone the repositories
+           then it remove all git cloned repositories & docker db when done
            and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
 
       ss-tool.conf:

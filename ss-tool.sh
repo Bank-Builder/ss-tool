@@ -131,12 +131,12 @@ docker_compose_template() {
     cat <<EOF    
 version: '3'
 services:
-  migrate-${folder}:
-    container_name: "compose-flyway-${folder}"
+  migrate-${schema}:
+    container_name: "compose-flyway-${schema}"
     image: "flyway/flyway:latest"
-    command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${folder} -user=postgres -password=postgres -connectRetries=60  migrate
+    command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${schema}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${schema} -user=postgres -password=postgres -connectRetries=60  migrate
     volumes:
-      - ./flyway_data/${flywayLocationConf}:/flyway/sql/${folder}
+      - ./flyway_data/${flywayLocationConf}:/flyway/sql/${schema}
     depends_on:
       - postgresql
 EOF
@@ -255,8 +255,8 @@ if [ -n "$_configFile" ]; then
     msg "$_docker_compose_cmd"
     evaluate "$_docker_compose_cmd"
      
-    msg "Sleeping for 10!" 
-    sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
+    msg "Sleeping for 15!" 
+    sleep 15 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
     
     OLDIFS="${IFS}"
@@ -269,7 +269,7 @@ if [ -n "$_configFile" ]; then
 	     	msg "FAILED:: $error_count errors in $i flyway logs";
 	     	msg "  View these by running 'docker logs compose-flyway-$i '"
 	     	
-	     	#TODO: below is a temp message whilst we iron out where schema creationg and public setup is
+	     	#TODO: below is a temp message whilst we iron out where schema creation 
 	     	msg ""
 		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
 		    msg "NOTE:: if this is the first time you running the ss-tool with dokuti and tilkynna to correct this failure comment out these lines in the following files::"
@@ -285,12 +285,16 @@ if [ -n "$_configFile" ]; then
     evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
     evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
     
-    if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
-      evaluate "cd $_here/flyway_data/$_canonical_folder"
-      evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update" 
-      evaluate "git add $_canonical_sql"
-      evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-      evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
+    if [ $_push_git == "1" ]; then 
+      if [ -z "$_token" ]; then
+        msg "Pushing is only allowed with private repos"
+      else
+        evaluate "cd $_here/flyway_data/$_canonical_folder"
+        evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update" 
+        evaluate "git add $_canonical_sql"
+        evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
+        evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
+      fi
     fi
     evaluate "cd $_here"
         

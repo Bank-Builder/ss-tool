@@ -267,16 +267,7 @@ if [ -n "$_configFile" ]; then
 	    if [ "$error_count" -gt 0 ]; then
 	        msg ""
 	     	msg "FAILED:: $error_count errors in $i flyway logs";
-	     	msg "  View these by running 'docker logs compose-flyway-$i '"
-	     	
-	     	#TODO: below is a temp message whilst we iron out where schema creation 
-	     	msg ""
-		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
-		    msg "NOTE:: if this is the first time you running the ss-tool with dokuti and tilkynna to correct this failure comment out these lines in the following files::"
-		    msg " - line 21: CREATE SCHEMA _documents;     in file flyway_data/dokuti/src/main/resources/db/migration/V1__init.sql"
-		    msg " - line 29: CREATE EXTENSION IF NOT EXISTS pgcrypto;      in file flyway_data/tilkynna/src/main/resources/db/migration/postgresql/V1__init.sql"
-		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
-		    
+	     	msg "  View these by running 'docker logs compose-flyway-$i '"    
 	     	exit 0; 
 	    fi	     
 	done

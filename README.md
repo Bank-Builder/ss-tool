@@ -23,7 +23,7 @@ Usage: ss-tool [OPTION]...
   EXAMPLE(s):
       ss-tool --cleanup -g 243 -t $GITHUB_TOKEN
            will use the github personal access token to clone the repositories
-           then it remove all git cloned repositories & docker db when done
+           then it will remove all git cloned repositories & docker db when done
            and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
 
       ss-tool.conf:

@@ -15,13 +15,15 @@ Usage: ss-tool [OPTION]...
     -c, --cleanup   removes all git cloned sub-directories & docker db when done
     -g, --git-ref   add an optional custom git reference eg 243 to match issue 243
     -p, --push-git  push to GitHub, default behaviour creates branch but does not push
+    -t, --token     the authorization token to use when pulling from a git repo
         --help      display this help and exit
         --version   display version and exit
 
 
   EXAMPLE(s):
-      ss-tool --cleanup -g 243
-           will remove all git cloned repositories & docker db when done
+      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN
+           will use the github personal access token to clone the repositories
+           then it will remove all git cloned repositories & docker db when done
            and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
 
       ss-tool.conf:
@@ -36,20 +38,25 @@ The ss-tool does the following:
 * it clones all the github repos for the listed micro-services
 * it spins up a postgres:latest docker image and creates an instance of the \[canonical-database\]
 * it then drops the schemas in the **canonical-database** for micro-service schema which exists
-* it uses a transient docker image boxfuse/flyway:latest to execute the migration scripts from each micro-service
+* it uses a transient docker image flyway/flyway:latest to execute the migration scripts from each micro-service
 * it the does a pg_dump of the canonical-database sql and commits it back to the canonical git repository
 
 if the --cleanup flag is not used the updated canonical database can be accessed
 on localhost:9432 using psql or pgadmin etc. with the username=postgres and password=postgres
+
+
 
 you can manually remove the database when done with:
 <pre>
 docker-compose down -v --remove-orphans
 </pre>
 
-Dependencies:
+## Dependencies:
 * docker
 * docker-compose
+
+## Github access token
+[Here are instructions on creating a personal access token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line)
 
 Copyright &copy; 2019, bank-builder
 

@@ -5,7 +5,7 @@
 #-----------------------------------------------------------------------
 
 # Globals
-_version="0.5"
+_version="0.6"
 _silent="0"
 _configFile="ss-tool.conf"
 _cleanup="0"
@@ -16,6 +16,7 @@ _git_ref="$(date +%Y%m%d-%H%M)"
 _push_git="0"
 _fw_path=""
 _fw_schema=""
+_token=""
 
 
 function displayHelp(){
@@ -30,6 +31,7 @@ function displayHelp(){
     echo "    -c, --cleanup   removes all git cloned sub-directories & docker db when done";
     echo "    -g, --git-ref   add an optional custom git reference eg 243 to match issue 243";
     echo "    -p, --push-git  push to GitHub, default behaviour creates branch but does not push";
+    echo "    -t, --token     the authorization token to use when pulling from a git repo";
     echo "        --help      display this help and exit";
     echo "        --version   display version and exit";
     echo "";
@@ -82,7 +84,7 @@ function cleanUp(){
     msg "iterating through and removing cloned repo sub-directories"
  
     evaluate "cd $_here"  
-    evaluate "docker-compose down -v";
+    evaluate "docker-compose down -v --remove-orphans";
     evaluate "rm -rf flyway_data";    
     msg "... deleted flyway_data";
     msg "----------"
@@ -99,6 +101,7 @@ function clone(){
     source=$1 
     folder=$(git_folder "$source"); 
     evaluate "cd $_here"
+    
     if [ ! -d "flyway_data/" ]; then
         evaluate "mkdir flyway_data"
     fi;
@@ -107,8 +110,20 @@ function clone(){
         msg "flyway_data/$folder exists, skipping clone"
     else
         evaluate "cd flyway_data"
-        evaluate "$source";
-        evaluate "cd $_here"
+        if [ -z "$_token" ]; then
+           # use git clone
+           evaluate "$source";
+        else
+          # https://github.blog/2012-09-21-easier-builds-and-deployments-using-git-over-https-and-oauth/
+          # using git pull so that token credentials are not persisted
+          evaluate "mkdir $folder"
+          evaluate "cd $folder"
+          evaluate "git init"
+          gitpull="https://$_token@github.com/"$( echo "$source" | rev | cut -d':' -f1 | rev );
+          evaluate "git pull $gitpull";
+          evaluate "git remote add origin $gitpull"
+        fi;
+	evaluate "cd $_here"
     fi;
 }
 
@@ -116,18 +131,24 @@ docker_compose_template() {
     cat <<EOF    
 version: '3'
 services:
-  migrate-${folder}:
-    container_name: "compose-flyway-${folder}"
-    image: "boxfuse/flyway:latest"
-    command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${folder}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${folder} -user=postgres -password=postgres -connectRetries=60  migrate
+  migrate-${schema}:
+    container_name: "compose-flyway-${schema}"
+    image: "flyway/flyway:latest"
+    command: -url=jdbc:postgresql://postgresql:5432/${_database} -schemas=${flywaySchemaConf} -table=${schema}_versions -baselineOnMigrate=true -baselineVersion=0 -locations=filesystem:/flyway/sql/${schema} -user=postgres -password=postgres -connectRetries=60  migrate
     volumes:
-      - ./flyway_data/${flywayLocationConf}:/flyway/sql/${folder}
+      - ./flyway_data/${flywayLocationConf}:/flyway/sql/${schema}
     depends_on:
       - postgresql
 EOF
 }
 
-
+function cleanSchemaCreate(){
+  for filename in $1/*.sql; do
+    msg "checking $filename"
+    sed -i 's/CREATE SCHEMA/-- CREATE SCHEMA/g' $filename
+    sed -i 's/DROP SCHEMA/-- DROP SCHEMA/g' $filename
+  done
+}
 
 function processConfig(){
  conf="$1"
@@ -148,7 +169,7 @@ function processConfig(){
            
            header=$( echo "$section" |cut -d':' -f1 );
            schema=$( echo "$section" |cut -d':' -f2 );
-           msg " "
+           msg "  "
       else # label=value
           
            if [ "$confLabel" == "source" ] && [ "$confValue" != "" ]; then
@@ -160,19 +181,24 @@ function processConfig(){
              
              read line   
              flywayLocationConf=$( echo "$line" |cut -d'=' -f2 );
+             
              read line   
              flywaySchemaConf=$( echo "$line" |cut -d'=' -f2 );
              
-             if [ "$header" == "canonical" ]; then _canonical_sql="$flywaySchemaConf"; fi
-             
-             if [ "$header" == "microservice" ]; then  
-             	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$folder.yml"; 
-             	_microservices_list="$_microservices_list$folder "
+             if [ "$header" == "canonical" ]; then 
+               _canonical_sql="$flywaySchemaConf";
+               $flywaySchemaConf = "public";
              fi
-               
+             
+             if [ "$header" == "microservice" ]; then
+                cleanSchemaCreate "flyway_data/$flywayLocationConf"  
+             	_docker_compose_overides="$_docker_compose_overides -f flyway_data/$schema.yml"; 
+             	_microservices_list="$_microservices_list$schema "
+             fi
+             
              OLDIFS="${IFS}"
              IFS=
-             docker_compose_template > flyway_data/$folder.yml
+             docker_compose_template > flyway_data/$schema.yml
              IFS="${OLDIFS}"   
              msg "$folder docker-compose created ..."          
            fi  			
@@ -206,6 +232,9 @@ while [[ "$#" > 0 ]]; do
         -g|--git-ref) 
             _git_ref="$2";
             shift;;
+        -t|--token) 
+            _token="$2";
+            shift;; 
          *) echo "Unknown parameter passed: $1"; exit 1;;
     esac; 
     shift; 
@@ -213,7 +242,7 @@ done
 
 if [ -n "$_configFile" ]; then
     if [ "$_silent" == "0" ]; then 
-        msg "ss-tool ver $_version"
+        msg "ss-tool version $_version"
         msg "======================";
     fi
        
@@ -222,12 +251,12 @@ if [ -n "$_configFile" ]; then
     msg "======================";
     msg "" 
     msg "Starting postgres & flyway migrations for each microservice ... " 
-    _docker_compose_cmd="docker-compose -f docker-compose.yml -f public.yml $_docker_compose_overides up -d"
+    _docker_compose_cmd="docker-compose -f docker-compose.yml $_docker_compose_overides up -d"
     msg "$_docker_compose_cmd"
     evaluate "$_docker_compose_cmd"
      
-    msg "Sleeping for 10!" 
-    sleep 10 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
+    msg "Sleeping for 15!" 
+    sleep 15 # wait for psql/flyways processes inside the docker containers to run etc. before trying to connect
     msg "Done Sleeping!"
     
     OLDIFS="${IFS}"
@@ -238,30 +267,25 @@ if [ -n "$_configFile" ]; then
 	    if [ "$error_count" -gt 0 ]; then
 	        msg ""
 	     	msg "FAILED:: $error_count errors in $i flyway logs";
-	     	msg "  View these by running 'docker logs compose-flyway-$i '"
-	     	
-	     	#TODO: below is a temp message whilst we iron out where schema creationg and public setup is
-	     	msg ""
-		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#" 
-		    msg "NOTE:: if this is the first time you running the ss-tool with dokuti and tilkynna to correct this failure comment out these lines in the following files::"
-		    msg " - line 21: CREATE SCHEMA _documents;     in file flyway_data/dokuti/src/main/resources/db/migration/V1__init.sql"
-		    msg " - line 29: CREATE EXTENSION IF NOT EXISTS pgcrypto;      in file flyway_data/tilkynna/src/main/resources/db/migration/postgresql/V1__init.sql"
-		    msg "#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#*#"
-		    
+	     	msg "  View these by running 'docker logs compose-flyway-$i '"    
 	     	exit 0; 
 	    fi	     
 	done
     IFS="${OLDIFS}"
     
     evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
-    evaluate "docker exec -u postgres sstool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
+    evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
     
-    if [ $_push_git == "1" ]; then # git add , git commit, git push upstream
-      evaluate "cd $_here/flyway_data/$_canonical_folder"  
-      evaluate "git add $_canonical_sql"
-      evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
-      #evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
-      evaluate "git push"
+    if [ $_push_git == "1" ]; then 
+      if [ -z "$_token" ]; then
+        msg "Pushing is only allowed with private repos"
+      else
+        evaluate "cd $_here/flyway_data/$_canonical_folder"
+        evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update" 
+        evaluate "git add $_canonical_sql"
+        evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
+        evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
+      fi
     fi
     evaluate "cd $_here"
         

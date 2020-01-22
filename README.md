@@ -23,11 +23,11 @@ Usage: ss-tool [OPTION]...
 
 
   EXAMPLE(s):
-      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN -u "Andrew Turpin" -e "fake.email@replace.me.com"
+      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN -u "user name" -e "fake.email@replace.me.com"
            will use the github personal access token to clone the repositories
            then it will remove all git cloned repositories & docker db when done
            and will add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
-           showing the user who pushed the change as Andrew Turpin linked to email address fake.email@replace.me.com
+           showing the user who pushed the change as 'user name' linked to email address fake.email@replace.me.com
 
       ss-tool.conf:
           [canonical-database] section

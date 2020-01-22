@@ -5,7 +5,7 @@
 #-----------------------------------------------------------------------
 
 # Globals
-_version="0.6"
+_version="0.7"
 _silent="0"
 _configFile="ss-tool.conf"
 _cleanup="0"
@@ -17,7 +17,9 @@ _push_git="0"
 _fw_path=""
 _fw_schema=""
 _token=""
-
+_gitUsername="Andrew Turpin"
+_gitEmail=""
+_canonical_flyway="migrations"
 
 function displayHelp(){
     echo "Usage: ss-tool [OPTION]...";
@@ -32,14 +34,17 @@ function displayHelp(){
     echo "    -g, --git-ref   add an optional custom git reference eg 243 to match issue 243";
     echo "    -p, --push-git  push to GitHub, default behaviour creates branch but does not push";
     echo "    -t, --token     the authorization token to use when pulling from a git repo";
+    echo "    -e, --email     the email to use for GitHub configuration when pushing";
+    echo "    -u, --username  the user name to use for GitHub configuration when pushing";
     echo "        --help      display this help and exit";
     echo "        --version   display version and exit";
     echo "";
     echo "";
     echo "  EXAMPLE(s):";
-    echo "      ss-tool --cleanup -g 243";
+    echo "      ss-tool --cleanup -g 243 -u 'user name' -e 'fake.email@replace.me.com'";
     echo "           will remove all git cloned repositories & docker db when done";
     echo "           and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes";
+    echo "           also, the branch will show as being pushed by 'user name' (fake.email@replace.me.com) on GitHub";
     echo "";
     echo "      ss-tool.conf:";
     echo "          [canonical-database] section";
@@ -187,7 +192,7 @@ function processConfig(){
              
              if [ "$header" == "canonical" ]; then 
                _canonical_sql="$flywaySchemaConf";
-               $flywaySchemaConf = "public";
+               _canonical_flyway="$flywayLocationConf";
              fi
              
              if [ "$header" == "microservice" ]; then
@@ -235,6 +240,12 @@ while [[ "$#" > 0 ]]; do
         -t|--token) 
             _token="$2";
             shift;; 
+        -e|--email) 
+            _gitEmail="$2";
+            shift;; 
+        -u|--username) 
+            _gitUsername="$2";
+            shift;; 
          *) echo "Unknown parameter passed: $1"; exit 1;;
     esac; 
     shift; 
@@ -273,16 +284,34 @@ if [ -n "$_configFile" ]; then
 	done
     IFS="${OLDIFS}"
     
-    evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/"
-    evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_here/flyway_data/$_canonical_folder/$_canonical_sql"
+    _full_canonical_path="$_here/flyway_data/$_canonical_folder"
+    if [ -n "$_canonical_flyway" ]; then
+      evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/$_canonical_flyway"
+      _full_canonical_path="$_full_canonical_path/$_canonical_flyway/$_canonical_sql";
+    else
+      evaluate "mkdir -p $_here/flyway_data/$_canonical_folder"
+      _full_canonical_path="$_full_canonical_path/$_canonical_sql";
+    fi
+    
+    evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_full_canonical_path"
     
     if [ $_push_git == "1" ]; then 
       if [ -z "$_token" ]; then
         msg "Pushing is only allowed with private repos"
       else
         evaluate "cd $_here/flyway_data/$_canonical_folder"
-        evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update" 
-        evaluate "git add $_canonical_sql"
+        if [ -n "$_gitEmail" ]; then
+          evaluate "git config --local user.email $_gitEmail"
+        fi
+        if [ -n "$_gitUsername" ]; then
+          evaluate "git config --local user.name $_gitUsername"
+        fi
+        evaluate "git checkout -b $_git_ref-ss_tool-db-auto-update"
+        if [ -n "$_canonical_flyway" ]; then
+          evaluate "git add $_canonical_flyway/$_canonical_sql"
+        else
+          evaluate "git add $_canonical_sql"
+        fi
         evaluate "git commit -m $_git_ref-ss_tool-db-auto-update"
         evaluate "git push --set-upstream origin $_git_ref-ss_tool-db-auto-update"
       fi
@@ -291,7 +320,7 @@ if [ -n "$_configFile" ]; then
         
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""
-    msg "Done! SQL for Canonical DB is at: '$_here/flyway_data/$_canonical_folder/$_canonical_sql'"
+    msg "Done! SQL for Canonical DB is at: '$_full_canonical_path'"
     exit 0; 
 fi;
 

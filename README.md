@@ -16,15 +16,18 @@ Usage: ss-tool [OPTION]...
     -g, --git-ref   add an optional custom git reference eg 243 to match issue 243
     -p, --push-git  push to GitHub, default behaviour creates branch but does not push
     -t, --token     the authorization token to use when pulling from a git repo
+    -e, --email     the email to use for GitHub configuration when pushing
+    -u, --username  the user name to use for GitHub configuration when pushing
         --help      display this help and exit
         --version   display version and exit
 
 
   EXAMPLE(s):
-      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN
+      ss-tool --cleanup -g 243 -t $GITHUB_TOKEN -u "Andrew Turpin"
            will use the github personal access token to clone the repositories
            then it will remove all git cloned repositories & docker db when done
-           and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
+           and will add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes
+           showing the user who pushed the change as Andrew Turpin
 
       ss-tool.conf:
           [canonical-database] section

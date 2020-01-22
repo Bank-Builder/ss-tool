@@ -20,8 +20,6 @@ _token=""
 _gitUsername="Andrew Turpin"
 _gitEmail=""
 _canonical_flyway="migrations"
-_full_canonical_path = ""
-
 
 function displayHelp(){
     echo "Usage: ss-tool [OPTION]...";
@@ -194,8 +192,7 @@ function processConfig(){
              
              if [ "$header" == "canonical" ]; then 
                _canonical_sql="$flywaySchemaConf";
-               $flywaySchemaConf = "public";
-               $_canonical_flyway="$flywayLocationConf";
+               _canonical_flyway="$flywayLocationConf";
              fi
              
              if [ "$header" == "microservice" ]; then
@@ -287,12 +284,13 @@ if [ -n "$_configFile" ]; then
 	done
     IFS="${OLDIFS}"
     
+    _full_canonical_path="$_here/flyway_data/$_canonical_folder"
     if [ -n "$_canonical_flyway" ]; then
       evaluate "mkdir -p $_here/flyway_data/$_canonical_folder/$_canonical_flyway"
-      $_full_canonical_path = "$_here/flyway_data/$_canonical_folder/$_canonical_flyway/$_canonical_sql";
+      _full_canonical_path="$_full_canonical_path/$_canonical_flyway/$_canonical_sql";
     else
       evaluate "mkdir -p $_here/flyway_data/$_canonical_folder"
-      $_full_canonical_path = "$_here/flyway_data/$_canonical_folder/$_canonical_sql";
+      _full_canonical_path="$_full_canonical_path/$_canonical_sql";
     fi
     
     evaluate "docker exec -u postgres ss-tool_postgresql_1 pg_dump -d canonical --schema-only  > $_full_canonical_path"
@@ -322,7 +320,7 @@ if [ -n "$_configFile" ]; then
         
     if [ "$_cleanup" == "1" ]; then cleanUp; fi; 
     msg ""
-    msg "Done! SQL for Canonical DB is at: '$_full_canonical_pah'"
+    msg "Done! SQL for Canonical DB is at: '$_full_canonical_path'"
     exit 0; 
 fi;
 

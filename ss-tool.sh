@@ -41,10 +41,10 @@ function displayHelp(){
     echo "";
     echo "";
     echo "  EXAMPLE(s):";
-    echo "      ss-tool --cleanup -g 243 -u 'Andrew Turpin'";
+    echo "      ss-tool --cleanup -g 243 -u 'Andrew Turpin' -e 'fake.email@replace.me.com'";
     echo "           will remove all git cloned repositories & docker db when done";
     echo "           and add a git-ref of '243-ss_tool-db-auto-update' when pushing the changes";
-    echo "           also, the branch will show as being pushed by Andrew Turpin on GitHub";
+    echo "           also, the branch will show as being pushed by Andrew Turpin (fake.email@replace.me.com) on GitHub";
     echo "";
     echo "      ss-tool.conf:";
     echo "          [canonical-database] section";
